@@ -256,7 +256,7 @@ st.markdown("""
 
         /* Mudar a borda inferior do elemento .st-dv para verde */
         .st-cr {
-            color: #28a745 !important;
+            background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, rgb(255, 75, 75) 0%, #28a745 100%, #28a745 100%, rgba(151, 166, 195, 0.25) 100%);
         }
 
         /* Mudar a borda inferior do elemento .st-dv para verde */
