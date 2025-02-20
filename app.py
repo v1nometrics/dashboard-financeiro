@@ -204,11 +204,6 @@ st.markdown("""
             border-left-color: #28a745 !important;
         }
 
-        /* Mudar o fundo do botão ou seleção para verde */
-        .st-cq {
-            background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, #28a745 0%, #28a745 100%, rgba(151, 166, 195, 0.25) 100%, rgba(151, 166, 195, 0.25) 100%);
-        }
-
         /* Mudar a cor do texto dentro de caixas ou campos de seleção */
         .st-emotion-cache-10y5sf6 {
             color: #28a745 !important;
@@ -221,7 +216,7 @@ st.markdown("""
         
         /* Mudar a cor de fundo do campo de seleção */
         .st-emotion-cache-1373cj4 {
-                background-color: #28a745 !important;
+                color: #28a745 !important;
          }
 
         /* Mudar a cor de fundo do campo de seleção */
@@ -257,6 +252,11 @@ st.markdown("""
         /* Mudar a borda inferior do elemento .st-dv para verde */
         .st-e5 {
             border-left-color: #28a745 !important;
+        }
+
+           /* Mudar a borda inferior do elemento .st-dv para verde */
+        .st-cr {
+            background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, #28a745 0%, #28a745 54.2501%, rgba(151, 166, 195, 0.25) 54.2501%, rgba(151, 166, 195, 0.25) 100%);
         }
 
 
