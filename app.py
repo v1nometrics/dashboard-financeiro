@@ -254,8 +254,13 @@ st.markdown("""
             border-left-color: #28a745 !important;
         }
 
-           /* Mudar a borda inferior do elemento .st-dv para verde */
+        /* Mudar a borda inferior do elemento .st-dv para verde */
         .st-cr {
+            background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, #28a745 0%, #28a745 54.2501%, rgba(151, 166, 195, 0.25) 54.2501%, rgba(151, 166, 195, 0.25) 100%);
+        }
+
+        /* Mudar a borda inferior do elemento .st-dv para verde */
+        .st-h7 {
             background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, #28a745 0%, #28a745 54.2501%, rgba(151, 166, 195, 0.25) 54.2501%, rgba(151, 166, 195, 0.25) 100%);
         }
 
