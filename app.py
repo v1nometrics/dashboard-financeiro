@@ -38,13 +38,16 @@ scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/au
 
 
 # Recupera a chave do Google a partir da variável de ambiente
-creds_json_str = os.getenv('GOOGLE_CREDENTIALS')
+creds_json_path = os.path.expanduser("~/.streamlit/secrets.json")
 
-if creds_json_str is None:
-    st.error("A variável de ambiente 'GOOGLE_CREDENTIALS' não foi configurada corretamente.")
+if not os.path.exists(creds_json_path):
+    st.error("O arquivo de credenciais não foi encontrado.")
     st.stop()
 
-# Converte o string JSON em um dicionário Python
+with open(creds_json_path, "r") as f:
+    creds_json_str = f.read()
+
+# Convertendo o JSON em um dicionário
 try:
     creds_json = json.loads(creds_json_str)
 except json.JSONDecodeError as e:
@@ -52,12 +55,11 @@ except json.JSONDecodeError as e:
     st.stop()
 
 
-# Agora use as credenciais para autenticação
+# Autenticar com as credenciais
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, ['https://www.googleapis.com/auth/spreadsheets'])
-
 client = gspread.authorize(creds)
 planilha = client.open("AJUSTADA - Valores a receber Innovatis").worksheet("VALORES A RECEBER")
-st.write("Conectado ao Google Sheets com sucesso!")
+
 
 
 # Obtenha todos os dados da planilha
