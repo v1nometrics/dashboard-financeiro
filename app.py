@@ -35,15 +35,26 @@ st.title('Dashboard Financeiro - INNOVATIS')
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 
 
-# Acessar as credenciais armazenadas no GitHub Secrets via variáveis de ambiente
-creds_json_str = os.getenv('GOOGLE_CREDENTIALS')  # Aqui estamos pegando o segredo diretamente da variável de ambiente
+# Certifique-se de que a variável de ambiente está configurada corretamente
+creds_json_str = os.getenv('GOOGLE_CREDENTIALS')
 
-if creds_json_str:
-    creds_json = json.loads(creds_json_str)  # Carregar as credenciais a partir da string JSON
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, ['https://www.googleapis.com/auth/spreadsheets.readonly'])
-    client = gspread.authorize(creds)
-    planilha = client.open("AJUSTADA - Valores a receber Innovatis").worksheet("VALORES A RECEBER")
-    st.write("Conectado ao Google Sheets com sucesso!")
+if creds_json_str is None:
+    st.error("A variável de ambiente 'GOOGLE_CREDENTIALS' não foi configurada corretamente.")
+    st.stop()
+
+# Converte o string JSON em um dicionário Python
+try:
+    creds_json = json.loads(creds_json_str)
+except json.JSONDecodeError as e:
+    st.error(f"Erro ao decodificar o JSON da chave: {e}")
+    st.stop()
+
+# Agora use as credenciais para autenticação
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, ['https://www.googleapis.com/auth/spreadsheets'])
+
+client = gspread.authorize(creds)
+planilha = client.open("AJUSTADA - Valores a receber Innovatis").worksheet("VALORES A RECEBER")
+st.write("Conectado ao Google Sheets com sucesso!")
 else:
     st.error("As credenciais do Google não foram encontradas nas variáveis de ambiente!")
     st.stop()
