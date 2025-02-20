@@ -54,10 +54,6 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, ['https://w
 
 client = gspread.authorize(creds)
 planilha = client.open("AJUSTADA - Valores a receber Innovatis").worksheet("VALORES A RECEBER")
-st.write("Conectado ao Google Sheets com sucesso!")
-else:
-    st.error("As credenciais do Google não foram encontradas nas variáveis de ambiente!")
-    st.stop()
 
 
 # Obtenha todos os dados da planilha
