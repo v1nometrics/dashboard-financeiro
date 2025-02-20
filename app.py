@@ -5,6 +5,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import matplotlib.pyplot as plt
 import os
+import json
 
 
 st.set_page_config(layout="wide")
@@ -36,7 +37,7 @@ st.title('Dashboard Financeiro - INNOVATIS')
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 
 
-# Certifique-se de que a variável de ambiente está configurada corretamente
+# Recupera a chave do Google a partir da variável de ambiente
 creds_json_str = os.getenv('GOOGLE_CREDENTIALS')
 
 if creds_json_str is None:
@@ -50,11 +51,13 @@ except json.JSONDecodeError as e:
     st.error(f"Erro ao decodificar o JSON da chave: {e}")
     st.stop()
 
+
 # Agora use as credenciais para autenticação
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, ['https://www.googleapis.com/auth/spreadsheets'])
 
 client = gspread.authorize(creds)
 planilha = client.open("AJUSTADA - Valores a receber Innovatis").worksheet("VALORES A RECEBER")
+st.write("Conectado ao Google Sheets com sucesso!")
 
 
 # Obtenha todos os dados da planilha
