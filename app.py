@@ -164,7 +164,7 @@ from PIL import Image
 
 # Carregar a imagem
 image = Image.open('/tmp/logo.png')
-st.sidebar.image(image, use_column_width=True)
+st.sidebar.image(image, use_container_width=True)
 
 # Adicionar um CSS para aumentar em 30% o tamanho da fonte de todos os textos do filtro na sidebar
 st.markdown("""
