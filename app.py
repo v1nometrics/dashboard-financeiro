@@ -35,7 +35,7 @@ st.title('Dashboard Financeiro - INNOVATIS')
 
 # Função para baixar o arquivo de credenciais do Google Drive
 def download_credentials_from_drive(file_id, output_path):
-    url = f'https://drive.google.com/file/d/10j8ubAWCMNomSR9YWANw7Uuba6WvgY6e/view?usp=sharing'
+    url = f'https://drive.google.com/uc?id=10j8ubAWCMNomSR9YWANw7Uuba6WvgY6e'
     gdown.download(url, output_path, quiet=False)
 
 # ID do arquivo no Google Drive
