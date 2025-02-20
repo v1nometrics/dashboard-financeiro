@@ -240,9 +240,27 @@ st.markdown("""
         }
 
         /* Mudar a borda inferior do elemento .st-dv para verde */
-        .st-dv {
+        .st-e8 {
             border-bottom-color: #28a745 !important;
         }
+
+        /* Mudar a borda inferior do elemento .st-dv para verde */
+        .st-e7 {
+            border-top-color: #28a745 !important;
+        }
+
+        /* Mudar a borda inferior do elemento .st-dv para verde */
+        .st-e6 {
+            border-right-color: #28a745 !important;
+        }
+
+        /* Mudar a borda inferior do elemento .st-dv para verde */
+        .st-e5 {
+            border-left-color: #28a745 !important;
+        }
+
+
+        
     </style>
 """, unsafe_allow_html=True)
 
