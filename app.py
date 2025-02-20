@@ -1,3 +1,10 @@
+pip install streamlit
+pip install pandas
+pip install numpy
+pip install gspread
+pip install oauth2client
+pip install matplotlib
+
 import streamlit as st
 import pandas as pd
 import numpy as np
