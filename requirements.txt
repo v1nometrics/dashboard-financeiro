@@ -4,4 +4,3 @@ numpy
 gspread
 oauth2client
 matplotlib
-os
