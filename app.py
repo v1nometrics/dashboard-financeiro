@@ -150,9 +150,21 @@ data['TIPO'] = data['TIPO'].replace({'PROJETO/Empresa Privada': 'PROJETO'})
 
 #Acima dos filtros, adicionar logo da empresa na sidebar, PNG
 #Para isso, é preciso fazer o upload da imagem para o Streamlit
+def download_logo_from_drive(file_id, output_path):
+    url = f'https://drive.google.com/uc?export=download&id=12JRQowjuoWPj4SDsGjNP-ky7QWitTFiC'
+    gdown.download(url, output_path, quiet=False)
+
+# Baixar logo
+download_logo_from_drive('12JRQowjuoWPj4SDsGjNP-ky7QWitTFiC', '/tmp/logo.png')
+
+
+
 from PIL import Image
-image = Image.open(r"C:\Users\campp\OneDrive\Área de Trabalho\VINICIUS\LOGO\Logo Innovatis Vetorizada.png")
+
+# Carregar a imagem
+image = Image.open('/tmp/logo.png')
 st.sidebar.image(image, use_column_width=True)
+
 
 
 
