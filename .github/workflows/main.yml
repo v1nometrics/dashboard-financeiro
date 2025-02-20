@@ -1,0 +1,2 @@
+- name: Set GOOGLE_CREDENTIALS for Streamlit
+  run: echo "${{ secrets.GOOGLE_CREDENTIALS }}" > $HOME/.streamlit/secrets.json
