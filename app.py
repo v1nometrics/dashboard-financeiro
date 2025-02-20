@@ -4,8 +4,8 @@ import numpy as np
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import matplotlib.pyplot as plt
-import os
 import json
+import gdown
 
 
 st.set_page_config(layout="wide")
@@ -33,33 +33,34 @@ st.markdown("""
 # Título do aplicativo
 st.title('Dashboard Financeiro - INNOVATIS')
 
+# Função para baixar o arquivo de credenciais do Google Drive
+def download_credentials_from_drive(file_id, output_path):
+    url = f'https://drive.google.com/file/d/10j8ubAWCMNomSR9YWANw7Uuba6WvgY6e/view?usp=sharing'
+    gdown.download(url, output_path, quiet=False)
+
+# ID do arquivo no Google Drive
+file_id = '10j8ubAWCMNomSR9YWANw7Uuba6WvgY6e'
+
+# Caminho onde o arquivo será salvo temporariamente
+output_path = '/tmp/credentials.json'
+
+# Baixar as credenciais do Google Drive
+download_credentials_from_drive(file_id, output_path)
+
+# Carregar o arquivo de credenciais JSON
+with open(output_path, 'r') as f:
+    creds_json = json.load(f)
+
 # Definir o escopo de acesso para Google Sheets e Google Drive
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 
-
-# Recupera a chave do Google a partir da variável de ambiente
-creds_json_path = os.path.expanduser("~/.streamlit/secrets.json")
-
-if not os.path.exists(creds_json_path):
-    st.error("O arquivo de credenciais não foi encontrado.")
-    st.stop()
-
-with open(creds_json_path, "r") as f:
-    creds_json_str = f.read()
-
-# Convertendo o JSON em um dicionário
-try:
-    creds_json = json.loads(creds_json_str)
-except json.JSONDecodeError as e:
-    st.error(f"Erro ao decodificar o JSON da chave: {e}")
-    st.stop()
-
-
-# Autenticar com as credenciais
-creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, ['https://www.googleapis.com/auth/spreadsheets'])
+# Autenticar com o Google
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, scope)
 client = gspread.authorize(creds)
-planilha = client.open("AJUSTADA - Valores a receber Innovatis").worksheet("VALORES A RECEBER")
 
+# Acessar a planilha do Google
+planilha = client.open("AJUSTADA - Valores a receber Innovatis").worksheet("VALORES A RECEBER")
+st.write("Conectado ao Google Sheets com sucesso!")
 
 
 # Obtenha todos os dados da planilha
