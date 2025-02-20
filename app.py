@@ -173,6 +173,16 @@ st.markdown("""
         .st-ei {
             background-color: #28a745 !important;  /* Verde */
         }
+
+         /* Mudar a cor de fundo para verde */
+        .st-ew {
+            background-color: #28a745 !important;  /* Verde */
+        }
+
+         /* Mudar a cor de fundo para verde */
+        .st-d7 {
+             background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, #28a745 0%, #28a745 100%, rgba(151, 166, 195, 0.25) 100%, rgba(151, 166, 195, 0.25) 100%);
+        }
         
         /* Mudar a cor da borda inferior para verde */
         .st-dw {
@@ -208,7 +218,16 @@ st.markdown("""
         .st-emotion-cache-1vzeuhh {
                 background-color: #28a745 !important;
          }
-            
+        
+        /* Mudar a cor de fundo do campo de seleção */
+        .st-emotion-cache-1373cj4 {
+                background-color: #28a745 !important;
+         }
+
+        /* Mudar a cor de fundo do campo de seleção */
+        .st-emotion-cache-1dj3ksd {
+                background-color: #28a745 !important;
+         }
 
         /* Aumentar o tamanho da fonte dos filtros na sidebar */
         [data-testid="stSidebar"] * {
