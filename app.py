@@ -62,7 +62,7 @@ client = gspread.authorize(creds)
 
 # Acessar a planilha do Google
 planilha = client.open("AJUSTADA - Valores a receber Innovatis").worksheet("VALORES A RECEBER")
-st.write("Conectado ao Google Sheets com sucesso!")
+st.write("Conectado à planilha com sucesso!")
 
 
 # Obtenha todos os dados da planilha
