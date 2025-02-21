@@ -1,20 +1,21 @@
 credentials:
   usernames:
     v1:
-      name: Vinicius Torres
-      email: vinicius.torres@innovatismc.com
-      password: abc
+      email: "vinicius.torres@innovatismc.com"
+      logged_in: False
+      name: "Vinicius Torres"
+      password: "191919"
     maysa:
-      name: Maysa Barreiro
-      email: contato@innovatismc.com
-      password: def
-
+      email: "contato@innovatismc.com"
+      logged_in: False
+      name: "Maysa Barreiro"
+      password: "admin"
+    epitacio:
+      email: "epitacio@innovatismc.com"
+      logged_in: False
+      name: "Epitacio Brito"
+      password: "admin"
 cookie:
   expiry_days: 30
-  key: random_signature_key
-  name: random_cookie_name
-
-preauthorized:
-  emails:
-    - vinicius.torres@innovatismc.com
-    - contato@innovatismc.com
+  key: "some_signature_key"
+  name: "some_cookie_name"
