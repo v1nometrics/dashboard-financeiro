@@ -68,8 +68,8 @@ elif st.session_state["authentication_status"] is None:
 if st.session_state["authentication_status"]:
         
     # URLs de download do MediaFire
-    credentials_url = "https://www.mediafire.com/file/9y2wc2nvakd09bn/chave2.json/file"
-    logo_url = "https://www.mediafire.com/view/7gvr9p2kb63qgmh/Logo_Innovatis_Vetorizada.png/file"
+    credentials_url = "  https://download1336.mediafire.com/eqkawpw2kpkgkDuOMg7iKsnkUNaX6g1fYlvEFxVTrHZ6Q8dgjSZVsIz6yDWCcFktkk9pN20dEr6EG38MfMpSJLjUq1aGj6BqMnDvOT-GvrqoXbZ6NGM_IEwGlKDRiF3wV7MaLTF_5vXU7J2K7_yJbytvgdFEIhMDIi18wlFFPD9Q-A/9y2wc2nvakd09bn/chave2.json"
+    logo_url = "https://download1582.mediafire.com/bj1t62vmultgnI0C4uEotWSCs2sPlfgajDujHMOpSeBipm9A6F_GiPOGykEcj_WMP8-v_ge_3fKOXm-GU7YhyGxfAVUXsOvwzZ1K1A8laEQNjKKYZN2BWggrNa7_LuS2M2QSoWtkA4BYM3H-PJDO5ci452E7xo_JztOhcjyLG1A7Kw/7gvr9p2kb63qgmh/Logo+Innovatis+Vetorizada.png"
     
     # Função para baixar o arquivo
     def download_file(url, output_path):
