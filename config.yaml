@@ -1,13 +1,13 @@
 credentials:
   usernames:
     v1:
-      name: Vinícius Torres
+      name: Vinicius Torres
       email: vinicius.torres@innovatismc.com
-      password: senha1
+      password: abc
     maysa:
       name: Maysa Barreiro
       email: contato@innovatismc.com
-      password: senha2
+      password: def
 
 cookie:
   expiry_days: 30
@@ -16,4 +16,5 @@ cookie:
 
 preauthorized:
   emails:
-    - melsby@gmail.com
+    - vinicius.torres@innovatismc.com
+    - contato@innovatismc.com
