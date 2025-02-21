@@ -9,7 +9,7 @@ import gdown
 import streamlit_authenticator as stauth
 import yaml
 from yaml.loader import SafeLoader
-
+import requests
 
 st.set_page_config(layout="wide")
 
@@ -66,22 +66,24 @@ elif st.session_state["authentication_status"] is None:
     
     # O resto do código só executa se autenticado
 if st.session_state["authentication_status"]:
-    
-    # Função para baixar o arquivo de credenciais do Google Drive
-    def download_credentials_from_drive(file_id, output_path):
-        url = f'https://drive.google.com/uc?id=10j8ubAWCMNomSR9YWANw7Uuba6WvgY6e'
-        gdown.download(url, output_path, quiet=False)
         
-    file_id = '10j8ubAWCMNomSR9YWANw7Uuba6WvgY6e'
+    # URLs de download do MediaFire
+    credentials_url = "https://www.mediafire.com/file/9y2wc2nvakd09bn/chave2.json/file"
+    logo_url = "https://www.mediafire.com/view/7gvr9p2kb63qgmh/Logo_Innovatis_Vetorizada.png/file"
     
-    # Caminho onde o arquivo será salvo temporariamente
-    output_path = '/tmp/credentials.json'
+    # Função para baixar o arquivo
+    def download_file(url, output_path):
+        response = requests.get(url, stream=True)
+        with open(output_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=128):
+                f.write(chunk)
     
-    # Baixar as credenciais do Google Drive
-    download_credentials_from_drive(file_id, output_path)
+    # Baixar os arquivos
+    download_file(credentials_url, '/tmp/chave2.json')
+    download_file(logo_url, '/tmp/Logo_Innovatis_Vetorizada.png')
     
     # Carregar o arquivo de credenciais JSON
-    with open(output_path, 'r') as f:
+    with open('/tmp/chave2.json', 'r') as f:
         creds_json = json.load(f)
     
     # Definir o escopo de acesso para Google Sheets e Google Drive
@@ -187,15 +189,13 @@ if st.session_state["authentication_status"]:
         url = f'https://drive.google.com/uc?export=download&id=12JRQowjuoWPj4SDsGjNP-ky7QWitTFiC'
         gdown.download(url, output_path, quiet=False)
     
-    # Baixar logo
-    download_logo_from_drive('12JRQowjuoWPj4SDsGjNP-ky7QWitTFiC', '/tmp/logo.png')
     
     
     from PIL import Image
-    
-    # Carregar a imagem
-    image = Image.open('/tmp/logo.png')
-    st.sidebar.image(image, use_container_width=True)
+    # Exibir a logo na sidebar
+    image = Image.open('/tmp/Logo_Innovatis_Vetorizada.png')
+    st.sidebar.image(image, use_column_width=True)
+   
     
     # Adicionar um CSS para aumentar em 30% o tamanho da fonte de todos os textos do filtro na sidebar
     st.markdown("""
