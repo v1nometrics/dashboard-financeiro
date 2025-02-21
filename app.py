@@ -68,23 +68,31 @@ elif st.session_state["authentication_status"] is None:
 if st.session_state["authentication_status"]:
         
     # URLs de download do MediaFire
-    credentials_url = "  https://download1336.mediafire.com/eqkawpw2kpkgkDuOMg7iKsnkUNaX6g1fYlvEFxVTrHZ6Q8dgjSZVsIz6yDWCcFktkk9pN20dEr6EG38MfMpSJLjUq1aGj6BqMnDvOT-GvrqoXbZ6NGM_IEwGlKDRiF3wV7MaLTF_5vXU7J2K7_yJbytvgdFEIhMDIi18wlFFPD9Q-A/9y2wc2nvakd09bn/chave2.json"
+    file_url = "https://download1336.mediafire.com/eqkawpw2kpkgkDuOMg7iKsnkUNaX6g1fYlvEFxVTrHZ6Q8dgjSZVsIz6yDWCcFktkk9pN20dEr6EG38MfMpSJLjUq1aGj6BqMnDvOT-GvrqoXbZ6NGM_IEwGlKDRiF3wV7MaLTF_5vXU7J2K7_yJbytvgdFEIhMDIi18wlFFPD9Q-A/9y2wc2nvakd09bn/chave2.json"
     logo_url = "https://download1582.mediafire.com/bj1t62vmultgnI0C4uEotWSCs2sPlfgajDujHMOpSeBipm9A6F_GiPOGykEcj_WMP8-v_ge_3fKOXm-GU7YhyGxfAVUXsOvwzZ1K1A8laEQNjKKYZN2BWggrNa7_LuS2M2QSoWtkA4BYM3H-PJDO5ci452E7xo_JztOhcjyLG1A7Kw/7gvr9p2kb63qgmh/Logo+Innovatis+Vetorizada.png"
+    output_path = '/tmp/chave2.json'  # Ajuste conforme o ambiente
     
     # Função para baixar o arquivo
-    def download_file(url, output_path):
-        response = requests.get(url, stream=True)
-        with open(output_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=128):
-                f.write(chunk)
+    def download_credentials_from_mediafire(url, output_path):
+        response = requests.get(url)
+        if response.status_code == 200:
+            with open(output_path, 'wb') as f:
+                f.write(response.content)
+        else:
+            print("Falha no download:", response.status_code)
     
     # Baixar os arquivos
-    download_file(credentials_url, '/tmp/chave2.json')
-    download_file(logo_url, '/tmp/Logo_Innovatis_Vetorizada.png')
+    download_credentials_from_mediafire(file_url, output_path)
     
-    # Carregar o arquivo de credenciais JSON
-    with open('/tmp/chave2.json', 'r') as f:
-        creds_json = json.load(f)
+    # Agora abra o arquivo baixado
+    try:
+        with open(output_path, 'r') as f:
+            creds_json = json.load(f)
+            print("Credenciais carregadas com sucesso!")
+    except FileNotFoundError:
+        print(f"Arquivo não encontrado: {output_path}")
+    except Exception as e:
+        print(f"Ocorreu um erro ao carregar o arquivo: {e}")
     
     # Definir o escopo de acesso para Google Sheets e Google Drive
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
