@@ -5,3 +5,5 @@ gspread
 oauth2client
 matplotlib
 gdown
+streamlit_authenticator
+SafeLoader
