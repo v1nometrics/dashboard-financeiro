@@ -71,15 +71,11 @@ if st.session_state["authentication_status"]:
     def download_credentials_from_drive(file_id, output_path):
         url = f'https://drive.google.com/uc?id=10j8ubAWCMNomSR9YWANw7Uuba6WvgY6e'
         gdown.download(url, output_path, quiet=False)
-    
-    # ID do arquivo no Google Drive
-    file_id = '10j8ubAWCMNomSR9YWANw7Uuba6WvgY6e'
-    
-    # Caminho onde o arquivo será salvo temporariamente
-    output_path = '/tmp/credentials.json'
-    
-    # Baixar as credenciais do Google Drive
-    download_credentials_from_drive(file_id, output_path)
+        file_id = '10j8ubAWCMNomSR9YWANw7Uuba6WvgY6e'
+        # Caminho onde o arquivo será salvo temporariamente
+        output_path = '/tmp/credentials.json'
+        # Baixar as credenciais do Google Drive
+        download_credentials_from_drive(file_id, output_path)
     
     # Carregar o arquivo de credenciais JSON
     with open(output_path, 'r') as f:
