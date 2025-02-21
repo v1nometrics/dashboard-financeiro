@@ -7,3 +7,4 @@ matplotlib
 gdown
 streamlit_authenticator
 SafeLoader
+requests
