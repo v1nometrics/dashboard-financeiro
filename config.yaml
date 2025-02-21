@@ -1,0 +1,17 @@
+credentials:
+  usernames:
+    vtorres:
+      email: vinicius.torres@innovatis.mc.com
+      name: Vinícius Torres
+      password: 'senha_hash_1'
+    rbriggs:
+      email: rbriggs@example.com
+      name: Rebecca Briggs
+      password: 'senha_hash_2'
+cookie:
+  expiry_days: 30
+  key: chave_assinatura_aleatoria
+  name: nome_cookie_aleatorio
+preauthorized:
+  emails:
+  - melsby@example.com
