@@ -276,6 +276,10 @@ if st.session_state["authentication_status"]:
                     background-color: rgb(49, 170, 77);  
                 }
 
+  		.st-hy {
+    		    background-color: rgb(49, 170, 77);
+	  	}
+
 
                 
             </style>
