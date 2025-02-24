@@ -371,7 +371,7 @@ if st.session_state["authentication_status"]:
             st.markdown(f"<p style='font-size:140%;'>Tamanho da amostra: {filtered_data.shape[0]}</p>", unsafe_allow_html=True)
         
         # Criando colunas no Streamlit
-        col1, col2 = st.columns(2)
+        row1_col1, row1_col2 = st.columns(2)
         
         
         
@@ -387,7 +387,7 @@ if st.session_state["authentication_status"]:
         # Gráficos estáticos (não alteram com filtros)
         
         # Gráfico de pizza - Distribuição por Cliente (usando dados originais, sem filtros)
-        with col1:
+        with row1_col1:
             st.subheader('Distribuição por Cliente')
             # Calcular o valor total a receber pela empresa por cliente
             data['SALDO_A_RECEBER'] = saldo_receber_temp
@@ -422,7 +422,7 @@ if st.session_state["authentication_status"]:
         
         
         # Gráfico de barras - Distribuição de Valor a Receber por Fundação
-        with col1:
+        with row2_col1:
             st.subheader('Valor a Receber por Fundação')
             total_a_receber_por_fundacao = data.groupby('FUNDAÇÃO')['SALDO_A_RECEBER'].sum().reset_index()
             total_a_receber_por_fundacao = total_a_receber_por_fundacao.sort_values(by='SALDO_A_RECEBER', ascending=False)
@@ -443,7 +443,7 @@ if st.session_state["authentication_status"]:
             st.pyplot(fig_bar_fundacao, use_container_width=False)
         
         # Gráfico de Pizza: Distribuição do Valor a Receber por Semestre
-        with col2:
+        with row1_col2:
             # Converter a coluna DATA para datetime e criar a coluna SEMESTRE robustamente
             data['DATA_DT'] = pd.to_datetime(data['DATA'], format='%m/%Y', errors='coerce')
             data['SEMESTRE'] = data['DATA_DT'].apply(
@@ -487,7 +487,7 @@ if st.session_state["authentication_status"]:
             
         
         # Gráfico de barras - Distribuição de Valor a Receber por Tipo de Serviço
-        with col2:
+        with row2_col2:
             st.subheader('Valor a Receber por Tipo de Serviço')
             total_a_receber_por_tipo = data.groupby('TIPO')['SALDO_A_RECEBER'].sum().reset_index()
             total_a_receber_por_tipo = total_a_receber_por_tipo.sort_values(by='SALDO_A_RECEBER', ascending=False)
