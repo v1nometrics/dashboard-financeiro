@@ -372,7 +372,7 @@ if st.session_state["authentication_status"]:
         
         # Criando colunas no Streamlit
         row1_col1, row1_col2 = st.columns(2)
-        
+        row2_col1, row2_col2 = st.columns(2)
         
         
         
