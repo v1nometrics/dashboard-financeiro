@@ -206,102 +206,11 @@ if st.session_state["authentication_status"]:
         # Adicionar um CSS para aumentar em 30% o tamanho da fonte de todos os textos do filtro na sidebar
         st.markdown("""
             <style>
-                /* Mudar a cor de fundo para verde */
-                .st-ei {
-                    background-color: #28a745 !important;  /* Verde */
-                }
-        
-                 /* Mudar a cor de fundo para verde */
-                .st-ew {
-                    background-color: #28a745 !important;  /* Verde */
-                }
-        
-                 /* Mudar a cor de fundo para verde */
-                .st-d7 {
-                     background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, #28a745 0%, #28a745 100%, rgba(151, 166, 195, 0.25) 100%, rgba(151, 166, 195, 0.25) 100%);
-                }
                 
-                /* Mudar a cor da borda inferior para verde */
-                .st-dw {
-                    border-bottom-color: #28a745 !important;
-                }   
-        
-                /* Mudar a cor da borda superior para verde */
-                .st-dv {
-                    border-top-color: #28a745 !important;
-                }
-                    
-                /* Mudar a cor da borda direita para verde */
-                .st-du {
-                    border-right-color: #28a745 !important;
-                }
-                    
-                /* Mudar a cor da borda esquerda para verde */
-                .st-dt {
-                    border-left-color: #28a745 !important;
-                }
-        
-                /* Mudar a cor do texto dentro de caixas ou campos de seleção */
-                .st-emotion-cache-10y5sf6 {
-                    color: #28a745 !important;
-                }
-        
-                /* Mudar a cor de fundo do campo de seleção */
-                .st-emotion-cache-1vzeuhh {
-                        background-color: #28a745 !important;
-                 }
-                
-                /* Mudar a cor de fundo do campo de seleção */
-                .st-emotion-cache-1373cj4 {
-                        color: #28a745 !important;
-                 }
-        
-                /* Mudar a cor de fundo do campo de seleção */
-                .st-emotion-cache-1dj3ksd {
-                        background-color: #28a745 !important;
-                 }
-        
                 /* Aumentar o tamanho da fonte dos filtros na sidebar */
                 [data-testid="stSidebar"] * {
                     font-size: 101% !important;
-                }
-        
-                /* Mudar o fundo do elemento .st-g6 para verde */
-                .st-g6 {
-                    background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, #28a745 0%, #28a745 54.2501%, rgba(151, 166, 195, 0.25) 54.2501%, rgba(151, 166, 195, 0.25) 100%);
-                }
-        
-                /* Mudar a borda inferior do elemento .st-dv para verde */
-                .st-e8 {
-                    border-bottom-color: #28a745 !important;
-                }
-        
-                /* Mudar a borda inferior do elemento .st-dv para verde */
-                .st-e7 {
-                    border-top-color: #28a745 !important;
-                }
-        
-                /* Mudar a borda inferior do elemento .st-dv para verde */
-                .st-e6 {
-                    border-right-color: #28a745 !important;
-                }
-        
-                /* Mudar a borda inferior do elemento .st-dv para verde */
-                .st-e5 {
-                    border-left-color: #28a745 !important;
-                }
-        
-                /* Mudar a borda inferior do elemento .st-dv para verde */
-                .st-cr {
-                    background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, #28a745 100%, #28a745 100%, rgba(151, 166, 195, 0.25) 100%);
-                }
-        
-                /* Mudar a borda inferior do elemento .st-dv para verde */
-                .st-h7 {
-                    background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, #28a745 0%, #28a745 54.2501%, rgba(151, 166, 195, 0.25) 54.2501%, rgba(151, 166, 195, 0.25) 100%);
-                }
-        
-        
+                }               
                 
             </style>
         """, unsafe_allow_html=True)
