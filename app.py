@@ -67,10 +67,6 @@ elif st.session_state["authentication_status"] is None:
     # O resto do código só executa se autenticado
 if st.session_state["authentication_status"]:
         
-    # URLs de download do MediaFire
-    file_url = "https://download1336.mediafire.com/eqkawpw2kpkgkDuOMg7iKsnkUNaX6g1fYlvEFxVTrHZ6Q8dgjSZVsIz6yDWCcFktkk9pN20dEr6EG38MfMpSJLjUq1aGj6BqMnDvOT-GvrqoXbZ6NGM_IEwGlKDRiF3wV7MaLTF_5vXU7J2K7_yJbytvgdFEIhMDIi18wlFFPD9Q-A/9y2wc2nvakd09bn/chave2.json"
-    logo_url = "https://download1582.mediafire.com/bj1t62vmultgnI0C4uEotWSCs2sPlfgajDujHMOpSeBipm9A6F_GiPOGykEcj_WMP8-v_ge_3fKOXm-GU7YhyGxfAVUXsOvwzZ1K1A8laEQNjKKYZN2BWggrNa7_LuS2M2QSoWtkA4BYM3H-PJDO5ci452E7xo_JztOhcjyLG1A7Kw/7gvr9p2kb63qgmh/Logo+Innovatis+Vetorizada.png"
-    output_path = '/tmp/chave2.json'  # Ajuste conforme o ambiente
     
     # Função para baixar o arquivo
     def download_credentials_from_drive(file_id, output_path):
@@ -194,12 +190,17 @@ if st.session_state["authentication_status"]:
             url = f'https://drive.google.com/uc?export=download&id=12JRQowjuoWPj4SDsGjNP-ky7QWitTFiC'
             gdown.download(url, output_path, quiet=False)
         
+        # Baixar logo
+        from tempfile import gettempdir
+        logo_path = f"{gettempdir()}/logo.png"
+        download_logo_from_drive('12JRQowjuoWPj4SDsGjNP-ky7QWitTFiC', logo_path)
         
         
         from PIL import Image
-        # Exibir a logo na sidebar
-        image = Image.open('/tmp/Logo_Innovatis_Vetorizada.png')
-        st.sidebar.image(image, use_column_width=True)
+        
+        # Carregar a imagem
+        image = Image.open('/tmp/logo.png')
+        st.sidebar.image(image, use_container_width=True)
        
         
         # Adicionar um CSS para aumentar em 30% o tamanho da fonte de todos os textos do filtro na sidebar
