@@ -68,42 +68,48 @@ elif st.session_state["authentication_status"] is None:
 if st.session_state["authentication_status"]:
         
     
-    # Função para baixar o arquivo
-    def download_credentials_from_drive(file_id, output_path):
-        url = f'https://drive.google.com/uc?id=10j8ubAWCMNomSR9YWANw7Uuba6WvgY6e'
-        gdown.download(url, output_path, quiet=False)
-        
-    # ID do arquivo no Google Drive
-    file_id = '10j8ubAWCMNomSR9YWANw7Uuba6WvgY6e'
+    # Função para baixar o arquivo de credenciais do Google Drive
+
+    s3 = boto3.client('s3')
+
+    s3 = boto3.resource(
+        service_name='s3',
+        region_name='us-east-2',
+        aws_access_key_id='AKIA47GB733YQT2N7HNC',
+        aws_secret_access_key='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'
+    )
+
+    # Print out bucket names
+    for bucket in s3.buckets.all():
+        print(bucket.name)
+
+
+   # Baixar o arquivo JSON diretamente do S3
+    obj = s3.Bucket('jsoninnovatis').Object('chave2.json').get()
+    # Ler o conteúdo do objeto e decodificar para string, em seguida converter para dict
+    creds_json = json.loads(obj['Body'].read().decode('utf-8'))
+
+
+    # Definir o escopo de acesso para Google Sheets e Google Drive
+    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     
-    # Caminho onde o arquivo será salvo temporariamente
-    from tempfile import gettempdir
-    output_path = f"{gettempdir()}/credentials.json"
-    
-    # Baixar as credenciais do Google Drive
-    download_credentials_from_drive(file_id, output_path)
-    
-    # Carregar o arquivo de credenciais JSON
-    with open(output_path, 'r') as f:
+    # Carregar arquivo
+    with open('chave2.json') as f:
         creds_json = json.load(f)
     
-        # Definir o escopo de acesso para Google Sheets e Google Drive
-        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        
-        # Autenticar com o Google
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, scope)
-        client = gspread.authorize(creds)
-        
-        # Acessar a planilha do Google
-        planilha = client.open("AJUSTADA - Valores a receber Innovatis").worksheet("VALORES A RECEBER")
-        st.write("Conectado à planilha com sucesso!")
-        
-        
-        # Obtenha todos os dados da planilha
-        dados = planilha.get_all_records()
-        
-        # Converta os dados para um DataFrame
-        df = pd.DataFrame(dados)
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, scope)
+    client = gspread.authorize(creds)
+    
+    # Acessar a planilha do Google
+    planilha = client.open("AJUSTADA - Valores a receber Innovatis").worksheet("VALORES A RECEBER")
+    st.write("Conectado à planilha com sucesso!")
+    
+    
+    # Obtenha todos os dados da planilha
+    dados = planilha.get_all_records()
+    
+    # Converta os dados para um DataFrame
+    df = pd.DataFrame(dados)
         
         
         #Jogando pro streamlit nossa tabela
@@ -185,22 +191,18 @@ if st.session_state["authentication_status"]:
         
         
         #Acima dos filtros, adicionar logo da empresa na sidebar, PNG
-        #Para isso, é preciso fazer o upload da imagem para o Streamlit
-        def download_logo_from_drive(file_id, output_path):
-            url = f'https://drive.google.com/uc?export=download&id=12JRQowjuoWPj4SDsGjNP-ky7QWitTFiC'
-            gdown.download(url, output_path, quiet=False)
-        
-        # Baixar logo
-        from tempfile import gettempdir
-        logo_path = f"{gettempdir()}/logo.png"
-        download_logo_from_drive('12JRQowjuoWPj4SDsGjNP-ky7QWitTFiC', logo_path)
-        
-        
-        from PIL import Image
-        
-        # Carregar a imagem
-        image = Image.open('/tmp/logo.png')
-        st.sidebar.image(image, use_container_width=True)
+	    from io import BytesIO
+	    from PIL import Image
+	
+	    #Baixar to Bucket do S3
+	    logo = s3.Bucket('jsoninnovatis').Object('Logo.png').get()
+	    
+	    # Ler o conteúdo e carregar a imagem
+	    logo_data = logo['Body'].read()
+	    image = Image.open(BytesIO(logo_data))
+	
+	    # Carregar a imagem
+	    st.sidebar.image(image, use_column_width=True)
        
         
         # Adicionar um CSS para aumentar em 30% o tamanho da fonte de todos os textos do filtro na sidebar
