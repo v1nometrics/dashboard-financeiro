@@ -9,7 +9,9 @@ import gdown
 import streamlit_authenticator as stauth
 import yaml
 from yaml.loader import SafeLoader
-import requests
+import boto3
+import json
+
 
 st.set_page_config(layout="wide")
 
