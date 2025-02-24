@@ -16,7 +16,7 @@ from PIL import Image
 
 #Carregar flat logo via URL direta
 logo_flat = 'https://www.innovatismc.com.br/wp-content/uploads/2023/12/logo-innovatis-flatico-150x150.png'
-st.set_page_config(layout="wide", page_icon=logo_flat)
+st.set_page_config(layout="wide", page_title='INNOVATIS DB FIN', page_icon=logo_flat)
 
 
 
