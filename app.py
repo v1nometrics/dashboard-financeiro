@@ -79,10 +79,6 @@ if st.session_state["authentication_status"]:
         aws_secret_access_key='IwF2Drjw3HiNZ2MXq5fYdiiUJI9zZwO+C6B+Bsz8'
     )
 
-    # Print out bucket names
-    for bucket in s3.buckets.all():
-        print(bucket.name)
-
 
    # Baixar o arquivo JSON diretamente do S3
     obj = s3.Bucket('jsoninnovatis').Object('chave2.json').get()
