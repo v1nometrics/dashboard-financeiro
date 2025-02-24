@@ -40,7 +40,7 @@ st.markdown("""
 
 
 # Título do aplicativo
-st.title('INNOVATIS Dashboard Financeiro (v1.0)')
+st.title('Dashboard Financeiro (v1.0)')
 
 # Importar arquivo de configuração
 with open('config.yaml') as file:
