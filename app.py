@@ -210,7 +210,55 @@ if st.session_state["authentication_status"]:
                 /* Aumentar o tamanho da fonte dos filtros na sidebar */
                 [data-testid="stSidebar"] * {
                     font-size: 101% !important;
-                }               
+                }
+
+                .st-fx {
+                    background-color: rgb(49, 170, 77);  
+                }
+
+		.st-cx {
+                    border-bottom-color: rgb(49, 170, 77);  
+                }
+
+		.st-cw {
+                    border-top-color: rgb(49, 170, 77);  
+                }
+
+		.st-cv {
+                    border-right-color: rgb(49, 170, 77);  
+                }
+
+		.st-cu {
+                    border-left-color: rgb(49, 170, 77);  
+                }
+
+		st-ew {
+                    background-color: #28a74500 !important;  
+                }
+
+		st-ei {
+                    background-color: #28a74500 !important;  
+                }
+
+		st-e2 {
+                    background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, rgb(49, 170, 77) 0%, rgb(49, 170, 77) 100%, rgba(151, 166, 195, 0.25) 100%, rgba(151, 166, 195, 0.25) 100%);  
+                }
+
+		.st-emotion-cache-1dj3ksd {
+                    background-color: #28a745 !important;  
+                }
+
+		.st-emotion-cache-15fru4 {
+                    padding: 0.2em 0.4em;
+		    overflow-wrap: break-word;
+	            margin: 0px;
+	            border-radius: 0.25rem;
+	            background: rgb(248, 249, 251);
+	            color: rgb(9, 171, 59);
+	            font-family: "Source Code Pro", monospace;
+	            font-size: 0.75em;  
+                }
+
                 
             </style>
         """, unsafe_allow_html=True)
