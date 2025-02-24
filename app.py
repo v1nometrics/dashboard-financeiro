@@ -276,8 +276,10 @@ if st.session_state["authentication_status"]:
   		.st-hy {
     		    background-color: rgb(49, 170, 77);
 	  	    }
-
-   	
+	
+		.st-d5 {
+   		    background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, rgb(49, 170, 77) 0%, rgb(49, 170, 77) 100%, rgba(151, 166, 195, 0.25) 100%, rgba(151, 166, 195, 0.25) 100%);
+		    }
 
 
                 
