@@ -366,7 +366,7 @@ if st.session_state["authentication_status"]:
     
     # Filtro de Saldo a Receber - Valor mínimo e máximo, utilizando os valores numéricos de saldo_receber_temp
     min_saldo, max_saldo = st.sidebar.slider(
-        'Selecione o intervalo de Saldo a Receber:',
+        'Selecione o intervalo de valores:',
         min_value=float(saldo_receber_temp.min()),
         max_value=float(saldo_receber_temp.max()),
         value=(float(saldo_receber_temp.min()), float(saldo_receber_temp.max())),
