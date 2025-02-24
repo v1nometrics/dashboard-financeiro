@@ -11,6 +11,8 @@ import yaml
 from yaml.loader import SafeLoader
 import boto3
 import json
+from io import BytesIO
+from PIL import Image
 
 
 st.set_page_config(layout="wide")
@@ -189,8 +191,6 @@ if st.session_state["authentication_status"]:
     #Acima dos filtros, adicionar logo da empresa na sidebar, PNG
     #Para isso, é preciso fazer o upload da imagem para o Streamlit
 
-    from io import BytesIO
-    from PIL import Image
 
     #Baixar to Bucket do S3
     logo = s3.Bucket('jsoninnovatis').Object('Logo.png').get()
@@ -200,7 +200,7 @@ if st.session_state["authentication_status"]:
     image = Image.open(BytesIO(logo_data))
 
     # Carregar a imagem
-    st.sidebar.image(image, use_column_width=True)
+    st.sidebar.image(image, use_container_width=True)
     
     # Adicionar um CSS para aumentar em 30% o tamanho da fonte de todos os textos do filtro na sidebar
     st.markdown("""
