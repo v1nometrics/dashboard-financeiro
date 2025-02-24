@@ -90,11 +90,9 @@ if st.session_state["authentication_status"]:
 
     # Definir o escopo de acesso para Google Sheets e Google Drive
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    
-    # Carregar arquivo
-    with open('chave2.json') as f:
-        creds_json = json.load(f)
-    
+
+	
+    # Criar as credenciais a partir do JSON baixado
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, scope)
     client = gspread.authorize(creds)
     
