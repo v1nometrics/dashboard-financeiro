@@ -127,7 +127,11 @@ if st.session_state["authentication_status"]:
     df.columns = df.columns.str.replace(' ', '_')
     
     # Selecionar variáveis de interesse
-    data = df[['FUNDAÇÃO', 'CLIENTE', 'TIPO', 'PREVISÃO_DE_RECEBIMENTO', 'ANO', 'SALDO_A_RECEBER']]
+    data = df[['FUNDAÇÃO', 'CLIENTE', 'TIPO', 'PREVISÃO_DE_RECEBIMENTO', 'ANO', 'SALDO_A_RECEBER', 'CUSTOS_INCORRIDOS', 'OUTROS_E_CORRELATOS']]
+
+    #Renomeie Outros e Correlatos para Custos Correlatos
+    data = data.rename(columns={'OUTROS_E_CORRELATOS': 'CUSTOS_CORRELATOS'})
+    
     
     # Transformar a coluna 'PREVISÃO_DE_RECEBIMENTO' e 'ANO' em uma coluna única 'DATA'
     data['PREVISÃO_DE_RECEBIMENTO'] = data['PREVISÃO_DE_RECEBIMENTO'].str.strip()
@@ -284,7 +288,19 @@ if st.session_state["authentication_status"]:
     
     
     
-    
+    #Converter Custos Incorridos e Custos Correlatos para numérico
+    data['CUSTOS_INCORRIDOS'] = data['CUSTOS_INCORRIDOS'].str.strip()
+    data['CUSTOS_INCORRIDOS'] = data['CUSTOS_INCORRIDOS'].str.replace('R$', '')
+    data['CUSTOS_INCORRIDOS'] = data['CUSTOS_INCORRIDOS'].str.replace('.', '')
+    data['CUSTOS_INCORRIDOS'] = data['CUSTOS_INCORRIDOS'].str.replace(',', '.')
+    data['CUSTOS_INCORRIDOS'] = pd.to_numeric(data['CUSTOS_INCORRIDOS'], errors='coerce')
+
+    data['CUSTOS_CORRELATOS'] = data['CUSTOS_CORRELATOS'].str.strip()
+    data['CUSTOS_CORRELATOS'] = data['CUSTOS_CORRELATOS'].str.replace('R$', '')
+    data['CUSTOS_CORRELATOS'] = data['CUSTOS_CORRELATOS'].str.replace('.', '')
+    data['CUSTOS_CORRELATOS'] = data['CUSTOS_CORRELATOS'].str.replace(',', '.')
+    data['CUSTOS_CORRELATOS'] = pd.to_numeric(data['CUSTOS_CORRELATOS'], errors='coerce')
+
     
     # Filtros interativos
     st.sidebar.header('Filtros')
@@ -363,38 +379,64 @@ if st.session_state["authentication_status"]:
     
     # Gráficos estáticos (não alteram com filtros)
     
-    # Gráfico de pizza - Distribuição por Cliente (usando dados originais, sem filtros)
+    # Gráfico de barras horizontais - Distribuição por Cliente (usando dados originais, sem filtros)
+
     with row1_col1:
-        st.subheader('Distribuição por Cliente')
+        st.subheader('Distribuição por Cliente (Barras Horizontais)')
+
         # Calcular o valor total a receber pela empresa por cliente
         data['SALDO_A_RECEBER'] = saldo_receber_temp
         total_a_receber_por_cliente = data.groupby('CLIENTE')['SALDO_A_RECEBER'].sum().reset_index()
         total_a_receber_por_cliente = total_a_receber_por_cliente.sort_values(by='SALDO_A_RECEBER', ascending=False)
-    
+
         # Agregar clientes que representam menos de 3% cada em um grupo chamado 'Outros'
         total_a_receber_por_cliente['CLIENTE_AGRUPADO'] = total_a_receber_por_cliente['CLIENTE']
         total_a_receber_por_cliente.loc[
             total_a_receber_por_cliente['SALDO_A_RECEBER'] / total_a_receber_por_cliente['SALDO_A_RECEBER'].sum() < 0.03,
             'CLIENTE_AGRUPADO'
         ] = 'Outros'
-    
+
         # Calcular o valor total a receber por cliente agrupado
         total_a_receber_por_cliente_agrupado = total_a_receber_por_cliente.groupby('CLIENTE_AGRUPADO')['SALDO_A_RECEBER'].sum().reset_index()
-        total_a_receber_por_cliente_agrupado = total_a_receber_por_cliente_agrupado.sort_values(by='SALDO_A_RECEBER', ascending=False)
-    
-        # Selecionar cores para o gráfico de pizza usando a nova paleta
+        total_a_receber_por_cliente_agrupado = total_a_receber_por_cliente_agrupado.sort_values(by='SALDO_A_RECEBER', ascending=True)
+
+        # --- Escalar os valores para milhões ---
+        total_a_receber_por_cliente_agrupado['SALDO_A_RECEBER'] /= 1_000_000
+
+        # Selecionar cores para o gráfico
         cores_cliente = colors_palette[:len(total_a_receber_por_cliente_agrupado)]
-    
-        fig_pizza, ax_pizza = plt.subplots(figsize=(2, 2))
-        ax_pizza.pie(
+
+        fig_bar, ax_bar = plt.subplots(figsize=(3, 2))
+
+        ax_bar.barh(
+            total_a_receber_por_cliente_agrupado['CLIENTE_AGRUPADO'],
             total_a_receber_por_cliente_agrupado['SALDO_A_RECEBER'],
-            labels=total_a_receber_por_cliente_agrupado['CLIENTE_AGRUPADO'],
-            autopct='%1.1f%%',
-            startangle=60,
-            colors=cores_cliente
+            color=cores_cliente
         )
-        ax_pizza.axis('equal')  # Equaliza o aspecto para que o gráfico seja um círculo
-        st.pyplot(fig_pizza, use_container_width=False)
+
+        # Ajustar rótulos dos eixos (com fonte menor)
+        ax_bar.set_xlabel('Saldo a Receber (em milhões)', fontsize=5)
+        ax_bar.set_ylabel('Cliente', fontsize=5)
+
+        # Remover notação científica no eixo X
+        ax_bar.ticklabel_format(style='plain', axis='x', useOffset=False)
+
+        # Diminuir a fonte dos ticks (valores do eixo)
+        ax_bar.tick_params(axis='x', labelsize=4)
+        ax_bar.tick_params(axis='y', labelsize=4)
+
+        # Exibir os valores ao lado das barras (em milhões)
+        for i, v in enumerate(total_a_receber_por_cliente_agrupado['SALDO_A_RECEBER']):
+            ax_bar.text(
+                v, 
+                i, 
+                f'R${v:,.2f}M',   # 2 casas decimais e a letra "M" para indicar milhões
+                va='center', 
+                fontsize=4
+            )
+
+        st.pyplot(fig_bar, use_container_width=False)
+
     
     
     
@@ -419,48 +461,46 @@ if st.session_state["authentication_status"]:
         plt.tight_layout()
         st.pyplot(fig_bar_fundacao, use_container_width=False)
     
-    # Gráfico de Pizza: Distribuição do Valor a Receber por Semestre
+    # Gráfico de Pizza: Distribuição dos Custos Incorridos e Custos Correlatos
     with row1_col2:
-        # Converter a coluna DATA para datetime e criar a coluna SEMESTRE robustamente
-        data['DATA_DT'] = pd.to_datetime(data['DATA'], format='%m/%Y', errors='coerce')
-        data['SEMESTRE'] = data['DATA_DT'].apply(
-            lambda x: f"{x.year}.{((x.month - 1) // 6) + 1}" if pd.notnull(x) else 'A definir'
-        )
-    
-        total_a_receber_por_semestre = data.groupby('SEMESTRE')['SALDO_A_RECEBER'].sum().reset_index()
-    
-        # Mapeamento de cores com predominância de azul e verde para semestres
+        total_custos_incurridos = data['CUSTOS_INCORRIDOS'].sum()
+        total_custos_correlatos = data['CUSTOS_CORRELATOS'].sum()
+        
+        custos_labels = ['Custos Incorridos', 'Custos Correlatos']
+        custos_values = [total_custos_incurridos, total_custos_correlatos]
+
         color_map = {
-            '2025.1': '#a1c9f4',  # azul pastel
-            '2025.2': '#a1f4c9',  # verde pastel
-            '2026.1': '#aec7e8',  # azul claro
-            '2026.2': '#98df8a',  # verde claro
-            '2027.1': '#a1c9f4',  # reutilizando azul
-            'A definir': '#D3D3D3'  # cinza claro para indefinido
+            'Custos Incorridos': '#a1c9f4',  # azul pastel
+            'Custos Correlatos': '#a1f4c9'  # verde pastel
         }
-    
-        labels = total_a_receber_por_semestre['SEMESTRE'].apply(
-            lambda x: 'A definir (sem data)' if x == 'A definir' else x
-        )
-        colors_semestre = [color_map.get(x, '#d3d3d3') for x in total_a_receber_por_semestre['SEMESTRE']]
-    
+        custos_colors = [color_map[label] for label in custos_labels]
+
+        # Função para formatar a exibição de cada fatia
+        # Mostra o percentual e o valor correspondente (com 2 casas decimais).
+        def make_autopct(values):
+            def my_autopct(pct):
+                total = sum(values)
+                val = pct * total / 100.0
+                return f'{pct:.1f}%\nR${val:,.2f}'
+            return my_autopct
+
         fig_pizza, ax_pizza = plt.subplots(figsize=(2, 2))
         wedges, texts, autotexts = ax_pizza.pie(
-            total_a_receber_por_semestre['SALDO_A_RECEBER'],
-            labels=labels,
-            autopct='%1.1f%%',
+            custos_values,
+            labels=custos_labels,
+            autopct=make_autopct(custos_values),
             startangle=60,
-            colors=colors_semestre,
+            colors=custos_colors,
             textprops={'fontsize': 5}
         )
-        # Posicionar a legenda fora do gráfico para evitar sobreposição
-        plt.legend(labels, fontsize=5, loc='center left', bbox_to_anchor=(1, 0.5))
+        plt.legend(custos_labels, fontsize=5, loc='center left', bbox_to_anchor=(1, 0.5))
         ax_pizza.axis('equal')
-    
-        st.subheader('Distribuição do Valor a Receber por Semestre')
+
+        st.subheader('Distribuição dos Custos')
         st.markdown("<div style='display: flex; justify-content: center;'>", unsafe_allow_html=True)
         st.pyplot(fig_pizza, use_container_width=False)
         st.markdown("</div>", unsafe_allow_html=True)
+
         
     
     # Gráfico de barras - Distribuição de Valor a Receber por Tipo de Serviço
