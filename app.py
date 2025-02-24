@@ -232,9 +232,9 @@ if st.session_state["authentication_status"]:
                     border-left-color: rgb(49, 170, 77);  
                 }
 
-		st-ew {
-                    background-color: #28a74500 !important;  
-                }
+		.st-ew {
+		    background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, rgb(49, 170, 77) 0%, rgb(49, 170, 77) 100%, rgba(151, 166, 195, 0.25) 100%, rgba(151, 166, 195, 0.25) 100%);
+		}
 
 		st-ei {
                     background-color: #28a74500 !important;  
@@ -258,6 +258,24 @@ if st.session_state["authentication_status"]:
 	            font-family: "Source Code Pro", monospace;
 	            font-size: 0.75em;  
                 }
+
+		.st-emotion-cache-1373cj4 {
+  			font-family: "Source Code Pro", monospace;
+			font-size: 14px;
+			color: rgb(49, 170, 77);
+			top: -1.6em;
+			position: absolute;
+			white-space: nowrap;
+			background-color: transparent;
+			line-height: 1.6;
+			font-weight: 400;
+			pointer-events: none;
+		}
+
+		.st-fi {
+                    background-color: rgb(49, 170, 77);  
+                }
+
 
                 
             </style>
