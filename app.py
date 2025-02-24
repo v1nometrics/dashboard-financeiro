@@ -14,8 +14,10 @@ import json
 from io import BytesIO
 from PIL import Image
 
+#Carregar flat logo via URL direta
+logo_flat = 'https://www.innovatismc.com.br/wp-content/uploads/2023/12/logo-innovatis-flatico-150x150.png'
+st.set_page_config(layout="wide", page_icon=logo_flat)
 
-st.set_page_config(layout="wide")
 
 
 # Importa a fonte Poppins do Google Fonts
