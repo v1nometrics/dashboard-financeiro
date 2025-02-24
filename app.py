@@ -73,29 +73,23 @@ if st.session_state["authentication_status"]:
     output_path = '/tmp/chave2.json'  # Ajuste conforme o ambiente
     
     # Função para baixar o arquivo
-    def download_credentials_from_mediafire(url, output_path):
-        response = requests.get(url)
-        if response.status_code == 200:
-            with open(output_path, 'wb') as f:
-                f.write(response.content)
-            return true
-        else:
-            print("Falha no download:", response.status_code)
-            return true
+    def download_credentials_from_drive(file_id, output_path):
+        url = f'https://drive.google.com/uc?id=10j8ubAWCMNomSR9YWANw7Uuba6WvgY6e'
+        gdown.download(url, output_path, quiet=False)
+        
+    # ID do arquivo no Google Drive
+    file_id = '10j8ubAWCMNomSR9YWANw7Uuba6WvgY6e'
     
-    # Baixar os arquivos
-    if download_credentials_from_mediafire(file_url, output_path):
-        st.write("Arquivo de credenciais baixado com sucesso!")
+    # Caminho onde o arquivo será salvo temporariamente
+    from tempfile import gettempdir
+    output_path = f"{gettempdir()}/credentials.json"
     
-        # Agora abra o arquivo baixado
-        try:
-            with open(output_path, 'r') as f:
-                creds_json = json.load(f)
-                print("Credenciais carregadas com sucesso!")
-        except FileNotFoundError:
-            print(f"Arquivo não encontrado: {output_path}")
-        except Exception as e:
-            print(f"Ocorreu um erro ao carregar o arquivo: {e}")
+    # Baixar as credenciais do Google Drive
+    download_credentials_from_drive(file_id, output_path)
+    
+    # Carregar o arquivo de credenciais JSON
+    with open(output_path, 'r') as f:
+        creds_json = json.load(f)
     
         # Definir o escopo de acesso para Google Sheets e Google Drive
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
