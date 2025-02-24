@@ -275,9 +275,7 @@ if st.session_state["authentication_status"]:
     		    background-color: rgb(49, 170, 77);
 	  	    }
 
-   		.st-ew {
-		        background: linear-gradient(to right, rgba(151, 166, 195, 0.25) 0%, rgba(151, 166, 195, 0.25) 0%, rgb(49, 170, 77) 0%, rgb(49, 170, 77) 100%, rgba(151, 166, 195, 0.25) 100%, rgba(151, 166, 195, 0.25) 100%);
-		    }
+   	
 
 
                 
@@ -366,7 +364,7 @@ if st.session_state["authentication_status"]:
     # Gráficos estáticos (não alteram com filtros)
     
     # Gráfico de pizza - Distribuição por Cliente (usando dados originais, sem filtros)
-    with row1_col2:
+    with row1_col1:
         st.subheader('Distribuição por Cliente')
         # Calcular o valor total a receber pela empresa por cliente
         data['SALDO_A_RECEBER'] = saldo_receber_temp
