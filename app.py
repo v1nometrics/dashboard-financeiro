@@ -44,7 +44,15 @@ authenticator = stauth.Authenticate(
     config['cookie']['expiry_days']
 )
 
-name, authentication_status, username = authenticator.login(location="main", key="login_main")
+result = authenticator.login(location="main", key="login_main")
+if result is not None:
+    name, authentication_status, username = result
+else:
+    # Se o login já foi realizado, os valores já estão no session_state
+    name = st.session_state.get("name")
+    authentication_status = st.session_state.get("authentication_status")
+    username = st.session_state.get("username")
+
 
 # Verificação do status da autenticação
 if authentication_status:
