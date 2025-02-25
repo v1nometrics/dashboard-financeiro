@@ -117,12 +117,11 @@ if st.session_state["authentication_status"]:
 	    return df
 
 
-
 	
     #Jogando pro streamlit nossa tabela
     def load_data(nrows):
-        data = df
-        return data
+	    data = df
+	    return data
     
     # Carregar os dados e mostrar um estado de carregamento
     data_load_state = st.text('Carregando dados...')
