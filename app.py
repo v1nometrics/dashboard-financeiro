@@ -97,7 +97,7 @@ if st.session_state["authentication_status"]:
     )
 
     @st.cache
-	def carregar_planilha():
+    def carregar_planilha():
 	    # Baixar o arquivo JSON diretamente do S3
 	    obj = s3.Bucket('jsoninnovatis').Object('chave2.json').get()
 	    # Ler o conteúdo do objeto, decodificar para string e converter para dict
@@ -115,6 +115,7 @@ if st.session_state["authentication_status"]:
 	    # Converter os dados para um DataFrame
 	    df = pd.DataFrame(dados)
 	    return df
+
 
 
 	
