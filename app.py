@@ -117,126 +117,87 @@ if st.session_state["authentication_status"]:
 	    return df
 
     # Chamar a função para carregar a planilha e armazenar em uma variável global
-    df = carregar_planilha()
+    df_raw = carregar_planilha()
 
-    #Jogando pro streamlit nossa tabela
-    def load_data(nrows):
-        data = df
+  
+
+
+
+    @st.cache_data
+    def preprocess_data(df):	
+    	# Remover espaços e ajustar nomes de colunas
+        df.columns = df.columns.str.strip().str.replace(' ', '_')
+        data = df[['FUNDAÇÃO', 'CLIENTE', 'TIPO', 'PREVISÃO_DE_RECEBIMENTO', 'ANO', 
+                   'SALDO_A_RECEBER', 'CUSTOS_INCORRIDOS', 'OUTROS_E_CORRELATOS']].copy()
+        data = data.rename(columns={'OUTROS_E_CORRELATOS': 'CUSTOS_CORRELATOS'})
+        
+        # Transformar e unificar colunas para criação da DATA
+        data['PREVISÃO_DE_RECEBIMENTO'] = data['PREVISÃO_DE_RECEBIMENTO'].str.strip().replace({
+            'Janeiro': '01', 'JANEIRO': '01', 'Fevereiro': '02', 'FEVEREIRO': '02',
+            'Março': '03', 'MARÇO': '03', 'Abril': '04', 'ABRIL': '04',
+            'Maio': '05', 'MAIO': '05', 'Junho': '06', 'JUNHO': '06',
+            'Julho': '07', 'JULHO': '07', 'Agosto': '08', 'AGOSTO': '08',
+            'Setembro': '09', 'SETEMBRO': '09', 'Outubro': '10', 'OUTUBRO': '10',
+            'Novembro': '11', 'NOVEMBRO': '11', 'Dezembro': '12', 'DEZEMBRO': '12',
+            'A DEFINIR': 'A definir', 'A Definir': 'A definir'
+        })
+        data['ANO'] = data['ANO'].astype(str).str.replace('.0', '')
+        data['DATA'] = data['PREVISÃO_DE_RECEBIMENTO'] + '/' + data['ANO']
+        data = data.drop(['PREVISÃO_DE_RECEBIMENTO', 'ANO'], axis=1)
+        data['DATA'] = pd.to_datetime(data['DATA'], format='%m/%Y', errors='coerce')\
+                        .dt.strftime('%m/%Y').fillna('A definir')
+        data['CLIENTE'] = data['CLIENTE'].replace({'': 'Não identificado'})
+        data = data[data['SALDO_A_RECEBER'] != '']
+        data = data[data['TIPO'] != '']
+        # Excluir datas específicas
+        datas_excluir = ['01/2024', '02/2024', '03/2024', '04/2024', '05/2024', '06/2024',
+                         '07/2024', '08/2024', '09/2024', '10/2024', '11/2024', '12/2024',
+                         '01/2023', '02/2023', '03/2023', '04/2023', '05/2023', '06/2023',
+                         '07/2023', '08/2023', '09/2023', '10/2023', '11/2023', '12/2023',
+                         '01/2025']
+        data = data[~data['DATA'].isin(datas_excluir)]
+        data['TIPO'] = data['TIPO'].replace({'PROJETO/Empresa Privada': 'PROJETO'})
+        
+        # Remover o mês anterior
+        today = datetime.date.today()
+        first_day_this_month = datetime.date(today.year, today.month, 1)
+        last_day_prev_month = first_day_this_month - datetime.timedelta(days=1)
+        prev_month_str = last_day_prev_month.strftime('%m/%Y')
+        data = data[data['DATA'] != prev_month_str]
+        
+        # Converter colunas de custo para numérico (vetorizado)
+        for col in ['CUSTOS_INCORRIDOS', 'CUSTOS_CORRELATOS']:
+            data[col] = (data[col].str.strip()
+                         .str.replace('R\$', '', regex=True)
+                         .str.replace('.', '')
+                         .str.replace(',', '.'))
+            data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0)
         return data
+
     
-    # Carregar os dados e mostrar um estado de carregamento
+     # Aplicar o pré-processamento (cacheado)
+    data = preprocess_data(df_raw)
+
+    # Função para carregar dados (neste exemplo, retornamos os dados já pré-processados)
+    @st.cache_data
+    def load_data(nrows):
+        return data.head(nrows)
+
     data_load_state = st.text('Carregando dados...')
     data = load_data(10000)
     data_load_state.text('Carregamento de dados concluído!')
-        
-    # Renomear as colunas para remover espaços
-    df.columns = df.columns.str.strip()
-    df.columns = df.columns.str.replace(' ', '_')
-    
-    # Selecionar variáveis de interesse
-    data = df[['FUNDAÇÃO', 'CLIENTE', 'TIPO', 'PREVISÃO_DE_RECEBIMENTO', 'ANO', 'SALDO_A_RECEBER', 'CUSTOS_INCORRIDOS', 'OUTROS_E_CORRELATOS']]
-
-    #Renomeie Outros e Correlatos para Custos Correlatos
-    data = data.rename(columns={'OUTROS_E_CORRELATOS': 'CUSTOS_CORRELATOS'})
-    
-    
-    # Transformar a coluna 'PREVISÃO_DE_RECEBIMENTO' e 'ANO' em uma coluna única 'DATA'
-    data['PREVISÃO_DE_RECEBIMENTO'] = data['PREVISÃO_DE_RECEBIMENTO'].str.strip()
-    data['PREVISÃO_DE_RECEBIMENTO'] = data['PREVISÃO_DE_RECEBIMENTO'].replace({'Janeiro': '01', 'JANEIRO': '01', 'Janeiro ': '01', 'JANEIRO ': '01', 'Fevereiro': '02', 'FEVEREIRO': '02', 'Fevereiro ': '02', 'FEVEREIRO ': '02', 'Março': '03', 'MARÇO': '03', 'Março ': '03', 'MARÇO ': '03', 'Abril': '04', 'ABRIL': '04', 'Abril ': '04', 'ABRIL ': '04', 'Maio': '05', 'MAIO': '05', 'Maio ': '05', 'MAIO ': '05', 'Junho': '06', 'JUNHO': '06', 'Junho ': '06', 'JUNHO ': '06', 'Julho': '07', 'JULHO': '07', 'Julho ': '07', 'JULHO ': '07', 'Agosto': '08', 'AGOSTO': '08', 'Agosto ': '08', 'AGOSTO ': '08', 'Setembro': '09', 'SETEMBRO': '09', 'Setembro ': '09', 'SETEMBRO ': '09', 'Outubro': '10', 'OUTUBRO': '10', 'Outubro ': '10', 'OUTUBRO ': '10', 'Novembro': '11', 'NOVEMBRO': '11', 'Novembro ': '11', 'NOVEMBRO ': '11', 'Dezembro': '12', 'DEZEMBRO': '12', 'Dezembro ': '12', 'DEZEMBRO ': '12', 'A DEFINIR': 'A definir', 'A DEFINIR ': 'A definir', 'A Definir': 'A definir', 'A Definir ': 'A definir'})
-    
-    # Tratamento da coluna 'ANO'
-    data['ANO'] = data['ANO'].astype(str)
-    data['ANO'] = data['ANO'].str.replace('.0', '')
-    
-    # Criar a coluna 'DATA' a partir de 'PREVISÃO_DE_RECEBIMENTO' e 'ANO'
-    data['DATA'] = data['PREVISÃO_DE_RECEBIMENTO'] + '/' + data['ANO']
-    
-    # Remover colunas que não serão mais utilizadas
-    data = data.drop(['PREVISÃO_DE_RECEBIMENTO', 'ANO'], axis=1)
-    
-    # Converter a coluna 'DATA' para o formato datetime
-    data['DATA'] = pd.to_datetime(data['DATA'], format='%m/%Y', errors='coerce')
-    data['DATA'] = data['DATA'].dt.strftime('%m/%Y')
-    data['DATA'] = data['DATA'].fillna('A definir')
-    
-    # Substituir valores em branco na coluna 'CLIENTE'
-    data['CLIENTE'] = data['CLIENTE'].replace({'': 'Não identificado'})
-    
-    # Excluir linhas com saldo a receber vazio
-    data = data[data['SALDO_A_RECEBER'] != '']
-    
-    #Para finalizar a limpeza, utilizar agora a coluna TIPO como referência para remover linhas com valores nulos.
-    data = data[data['TIPO'] != '']
-    
-    #EXCLUIR TODAS AS LINHAS REFERENTES A ANTES DE 01/2025 
-    data = data[data['DATA'] != '01/2024']
-    data = data[data['DATA'] != '02/2024']
-    data = data[data['DATA'] != '03/2024']
-    data = data[data['DATA'] != '04/2024']
-    data = data[data['DATA'] != '05/2024']
-    data = data[data['DATA'] != '06/2024']
-    data = data[data['DATA'] != '07/2024']
-    data = data[data['DATA'] != '08/2024']
-    data = data[data['DATA'] != '09/2024']
-    data = data[data['DATA'] != '10/2024']
-    data = data[data['DATA'] != '11/2024']
-    data = data[data['DATA'] != '12/2024']
-    data = data[data['DATA'] != '01/2023']
-    data = data[data['DATA'] != '02/2023']
-    data = data[data['DATA'] != '03/2023']
-    data = data[data['DATA'] != '04/2023']
-    data = data[data['DATA'] != '05/2023']
-    data = data[data['DATA'] != '06/2023']
-    data = data[data['DATA'] != '07/2023']
-    data = data[data['DATA'] != '08/2023']
-    data = data[data['DATA'] != '09/2023']
-    data = data[data['DATA'] != '10/2023']
-    data = data[data['DATA'] != '11/2023']
-    data = data[data['DATA'] != '12/2023']
-    data = data[data['DATA'] != '01/2025']
-    
-    #PROJETO e PROJETO/Empresa Privada sâo a mesma coisa, vamos juntar esses dois tipos em um só
-    
-    data['TIPO'] = data['TIPO'].replace({'PROJETO/Empresa Privada': 'PROJETO'})
-
-
-    #PROGRAMAR PARA SEMPRE REMOVER O MÊS ANTERIOR AO ATUAL
-
-    def remove_previous_month(dataframe):
-        """Remove do DataFrame as linhas que correspondem exatamente ao mês anterior ao atual (mm/YYYY)."""
-        # Data de hoje
-        today = datetime.date.today()
-        # Primeiro dia do mês atual
-        first_day_this_month = datetime.date(today.year, today.month, 1)
-        # Último dia do mês anterior
-        last_day_prev_month = first_day_this_month - datetime.timedelta(days=1)
-        # Formatar no padrão mm/YYYY
-        prev_month_str = last_day_prev_month.strftime('%m/%Y')
-        
-        # Remover as linhas que tenham DATA igual a prev_month_str
-        filtered_df = dataframe[dataframe['DATA'] != prev_month_str]
-        return filtered_df
-
-
-    # Após você criar data['DATA'] e antes de plotar gráficos
-    data = remove_previous_month(data)
-
-    
-    
     
     #Acima dos filtros, adicionar logo da empresa na sidebar, PNG
     #Para isso, é preciso fazer o upload da imagem para o Streamlit
 
+    @st.cache_data
+    def load_logo():
+        logo_obj = s3.Bucket('jsoninnovatis').Object('Logo.png').get()
+        logo_data = logo_obj['Body'].read()
+        return Image.open(BytesIO(logo_data))
 
-    #Baixar to Bucket do S3
-    logo = s3.Bucket('jsoninnovatis').Object('Logo.png').get()
-    
-    # Ler o conteúdo e carregar a imagem
-    logo_data = logo['Body'].read()
-    image = Image.open(BytesIO(logo_data))
-
-    # Carregar a imagem
-    st.sidebar.image(image, use_container_width=True)
+    logo_image = load_logo()
+    st.sidebar.image(logo_image, use_container_width=True) 
     
     # Adicionar um CSS para aumentar em 30% o tamanho da fonte de todos os textos do filtro na sidebar
     st.markdown("""
