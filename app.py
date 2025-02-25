@@ -116,7 +116,9 @@ if st.session_state["authentication_status"]:
 	    df = pd.DataFrame(dados)
 	    return df
 
-	
+    # Chamar a função para carregar a planilha e armazenar em uma variável global
+    df = carregar_planilha()
+
     #Jogando pro streamlit nossa tabela
     def load_data(nrows):
         data = df
