@@ -36,11 +36,6 @@ st.title('Dashboard Financeiro (v1.0)')
 with open('config.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
 
-# Adicionar uma opção de "Permanecer Conectado" na tela de login
-remember_me = st.checkbox("Permanecer conectado", value=True)
-# Se marcado, usa 30 dias; senão, utiliza um tempo curto (ou session cookie)
-expiry_days = 30 if remember_me else 0
-
 # Criar o objeto de autenticação
 authenticator = stauth.Authenticate(
     config['credentials'],
