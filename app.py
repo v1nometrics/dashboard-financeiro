@@ -48,7 +48,7 @@ authenticator.login()
 
 # Verificação do status da autenticação
 if st.session_state["authentication_status"]:
-    authenticator.logout("Logout", "sidebar")
+    authenticator.logout("Logout")
     st.write(f"Bem-vindo, {st.session_state['name']}!")
 elif st.session_state["authentication_status"] is False:
     st.error('Usuário/Senha inválido')
