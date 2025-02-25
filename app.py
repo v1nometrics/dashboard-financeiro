@@ -44,15 +44,15 @@ authenticator = stauth.Authenticate(
     config['cookie']['expiry_days']
 )
 
-authenticator.login()
+name, authentication_status, username = authenticator.login(location="main", key="login_main")
 
 # Verificação do status da autenticação
-if st.session_state["authentication_status"]:
-    authenticator.logout("Logout", "main")
+if authentication_status:
+    authenticator.logout("Logout", "main", key="logout_sidebar")
     st.write(f"Bem-vindo, {st.session_state['name']}!")
-elif st.session_state["authentication_status"] is False:
+elif authentication_status is False:
     st.error('Usuário/Senha inválido')
-if st.session_state["authentication_status"] is None:
+elif authentication_status is None:
     st.markdown("""
         <style>
         div[data-testid="stAppViewContainer"] {
@@ -62,6 +62,7 @@ if st.session_state["authentication_status"] is None:
         </style>
     """, unsafe_allow_html=True)
     st.warning('Por Favor, utilize seu usuário e senha!')
+
 
 # O resto do código só executa se autenticado
 if st.session_state["authentication_status"]:
