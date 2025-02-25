@@ -61,7 +61,7 @@ authenticator.login()
 
 # Verificação do status da autenticação
 if st.session_state["authentication_status"]:
-    st.write(f"Bem-vindo, {st.session_state['name']}!")
+	st.write(f"Bem-vindo, {st.session_state['name']}!")
 	if st.button("Logout"):
 		authenticator.logout()
     
