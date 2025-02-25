@@ -96,32 +96,37 @@ if st.session_state["authentication_status"]:
         aws_secret_access_key='IwF2Drjw3HiNZ2MXq5fYdiiUJI9zZwO+C6B+Bsz8'
     )
 
-    @st.cache
-    def carregar_planilha():
-	    # Baixar o arquivo JSON diretamente do S3
-	    obj = s3.Bucket('jsoninnovatis').Object('chave2.json').get()
-	    # Ler o conteúdo do objeto, decodificar para string e converter para dict
-	    creds_json = json.loads(obj['Body'].read().decode('utf-8'))
-	    # Definir o escopo de acesso para Google Sheets e Google Drive
-	    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-	    # Criar as credenciais a partir do JSON baixado
-	    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, scope)
-	    client = gspread.authorize(creds)
-	    # Acessar a planilha do Google
-	    planilha = client.open("AJUSTADA - Valores a receber Innovatis").worksheet("VALORES A RECEBER")
-	    st.write("Conectado à planilha com sucesso!")
-	    # Obter todos os dados da planilha
-	    dados = planilha.get_all_records()
-	    # Converter os dados para um DataFrame
-	    df = pd.DataFrame(dados)
-	    return df
 
+   # Baixar o arquivo JSON diretamente do S3
+    obj = s3.Bucket('jsoninnovatis').Object('chave2.json').get()
+    # Ler o conteúdo do objeto e decodificar para string, em seguida converter para dict
+    creds_json = json.loads(obj['Body'].read().decode('utf-8'))
+
+
+    # Definir o escopo de acesso para Google Sheets e Google Drive
+    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+
+	
+    # Criar as credenciais a partir do JSON baixado
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, scope)
+    client = gspread.authorize(creds)
+    
+    # Acessar a planilha do Google
+    planilha = client.open("AJUSTADA - Valores a receber Innovatis").worksheet("VALORES A RECEBER")
+    st.write("Conectado à planilha com sucesso!")
+    
+    
+    # Obtenha todos os dados da planilha
+    dados = planilha.get_all_records()
+    
+    # Converta os dados para um DataFrame
+    df = pd.DataFrame(dados)
 
 	
     #Jogando pro streamlit nossa tabela
     def load_data(nrows):
-	    data = df
-	    return data
+        data = df
+        return data
     
     # Carregar os dados e mostrar um estado de carregamento
     data_load_state = st.text('Carregando dados...')
