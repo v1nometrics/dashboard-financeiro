@@ -102,7 +102,7 @@ if st.session_state["authentication_status"]:
 	obj = s3.Bucket('jsoninnovatis').Object('chave2.json').get()
 	# Ler o conteúdo do objeto e decodificar para string, em seguida converter para dict
 	Creds_json = json.loads(obj['Body'].read().decode('utf-8'))
-	# Definir o escopo de acesso para Google Sheets e Google Drive  
+	# Definir o escopo de acesso para Google Sheets e Google Drive
 	scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 	# Criar as credenciais a partir do JSON baixado
 	creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, scope)
