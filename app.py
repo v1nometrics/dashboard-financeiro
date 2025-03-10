@@ -11,10 +11,18 @@ import boto3
 import datetime
 from io import BytesIO
 from PIL import Image
+import openpyxl
+import tempfile
+import re
+import numpy as np
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+import io
+
 
 # Carregar flat logo via URL direta
 logo_flat = 'https://www.innovatismc.com.br/wp-content/uploads/2023/12/logo-innovatis-flatico-150x150.png'
-st.set_page_config(layout="wide", page_title='DASHBOARD v1.0', page_icon=logo_flat)
+st.set_page_config(layout="wide", page_title='DASHBOARD v1.1', page_icon=logo_flat)
 
 # Importa a fonte Poppins do Google Fonts
 st.markdown("""
@@ -30,7 +38,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Título do aplicativo
-st.title('Dashboard Financeiro (v1.0)')
+st.title('Dashboard Financeiro (v1.1)')
 
 # Importar arquivo de configuração
 with open('config.yaml') as file:
@@ -45,8 +53,6 @@ authenticator = stauth.Authenticate(
 )
 
 authenticator.login()
-
-
 
 # Verificação do status da autenticação
 if st.session_state["authentication_status"]:
@@ -65,12 +71,9 @@ elif st.session_state["authentication_status"] is None:
     """, unsafe_allow_html=True)
     st.warning('Por Favor, utilize seu usuário e senha!')
 
-
 # O resto do código só executa se autenticado
 if st.session_state["authentication_status"]:
-    
     # Configurar acesso ao S3
-    s3 = boto3.client('s3')
     s3 = boto3.resource(
         service_name='s3',
         region_name='us-east-2',
@@ -78,38 +81,173 @@ if st.session_state["authentication_status"]:
         aws_secret_access_key='IwF2Drjw3HiNZ2MXq5fYdiiUJI9zZwO+C6B+Bsz8'
     )
 
+    # ---------------------------------------------------
+    # Função para baixar a planilha Excel exportada do Google Sheets
+    # ---------------------------------------------------
+    @st.cache_data
+    def baixar_planilha_excel():
+        # Baixar a chave JSON diretamente do S3
+        obj = s3.Bucket('jsoninnovatis').Object('chave2.json').get()
+        creds_json = json.loads(obj['Body'].read().decode('utf-8'))
+        
+        # Definir os escopos para acesso ao Google Drive e leitura da planilha
+        scope = [
+            'https://www.googleapis.com/auth/drive',
+            'https://www.googleapis.com/auth/spreadsheets.readonly'
+        ]
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, scope)
+        
+        # Conectar via gspread para abrir a planilha e obter seu file ID
+        client = gspread.authorize(creds)
+        planilha = client.open("Cópia de Valores a Rebecer Innovatis - Fundações (12)")
+        file_id = planilha.id  # Obtém o ID da planilha
+        
+        # Conectar à API do Google Drive para exportar a planilha como XLSX
+        drive_service = build('drive', 'v3', credentials=creds)
+        request = drive_service.files().export_media(
+            fileId=file_id,
+            mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+        # Salva o conteúdo em um arquivo temporário com extensão .xlsx
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+        with open(temp_file.name, "wb") as f:
+            f.write(fh.getvalue())
+        return temp_file.name
+
+    # ---------------------------------------------------
+    # Baixar a planilha Excel exportada do Google Sheets
+    # ---------------------------------------------------
+    arquivo = baixar_planilha_excel()
+    # ---------------------------------------------------
+    # Pré-processamento com openpyxl para tratar células mescladas
+    # ---------------------------------------------------
+    wb = openpyxl.load_workbook(arquivo, data_only=True)
+    sheets_to_process = [
+        sheet for sheet in wb.sheetnames 
+        if sheet.strip().upper() not in ["GERAL_PROJETOS_FADEX", "TEDS SEM CONTRATO"]
+    ]
+    for sheet in sheets_to_process:
+        ws = wb[sheet]
+        merged_ranges = list(ws.merged_cells.ranges)
+        for merged_range in merged_ranges:
+            min_col, min_row, max_col, max_row = merged_range.bounds
+            top_left_value = ws.cell(row=min_row, column=min_col).value
+            ws.unmerge_cells(str(merged_range))
+            for row in range(min_row, max_row + 1):
+                for col in range(min_col, max_col + 1):
+                    ws.cell(row=row, column=col).value = top_left_value
+
+    # Salva o workbook modificado em um novo arquivo temporário
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+    wb.save(temp_file.name)
+    temp_file.close()
+    arquivo = temp_file.name  # Atualiza o caminho para o arquivo tratado
+
+    # ---------------------------------------------------
+    # Continuação do seu código original para processar o Excel
+    # ---------------------------------------------------
+
+    df_raw = pd.read_excel(arquivo, sheet_name=None)  # Carrega todas as abas do Excel tratado
+    # A exibição dos dados do Google Sheets foi desativada:
+    # st.write("Dados consolidados do Google Sheets:")
+    # st.dataframe(df_raw)
+
+
+    # Formatação para exibição dos floats com duas casas decimais
+    pd.options.display.float_format = '{:.2f}'.format
+    # ---------------------------------------------------
+    # Função para limpar valores monetários
+    # ---------------------------------------------------
+    def clean_numeric(x):
+        try:
+            if pd.isna(x) or x == "":
+                return 0
+            x_str = str(x)
+            cleaned = re.sub(r"[^\d\.,-]", "", x_str)
+            if "," in cleaned:
+                cleaned = cleaned.replace(".", "").replace(",", ".")
+            return float(cleaned)
+        except Exception:
+            return 0
+
+    # ---------------------------------------------------
+    # Função para carregar dados de desvio
+    # ---------------------------------------------------
+    @st.cache_data
+    def carregar_dados_desvio():
+        xls = pd.ExcelFile(arquivo)
+        paginas_processar = [
+            pagina for pagina in xls.sheet_names 
+            if pagina.strip().upper() not in ["GERAL_PROJETOS_FADEX", "TEDS SEM CONTRATO"]
+        ]
+        
+        lista_dfs = []
+        cols_interesse = [
+            "QUANT.", "CLIENTE", "PROJETO", "VALOR DO CONTRATO", 
+            "REPASSE RECEBIDO", "CUSTOS INCORRIDOS", "VALOR",         
+            "OUTROS CORRELATOS", "VALOR2", "SALDO A RECEBER",
+        ]
+
+        for pagina in paginas_processar:
+            df = pd.read_excel(arquivo, sheet_name=pagina, skiprows=3)
+            df.columns = df.columns.str.strip().str.upper().str.replace("  ", " ")
+            
+            if "PROJETO/FIN." in df.columns:
+                df.rename(columns={"PROJETO/FIN.": "PROJETO"}, inplace=True)
+            if "PROJETO/OBJETO" in df.columns:
+                df.rename(columns={"PROJETO/OBJETO": "PROJETO"}, inplace=True)
+            
+            missing = [col for col in cols_interesse if col not in df.columns]
+            if missing:
+                continue
+                
+            df = df[cols_interesse]
+            df = df.replace(r'^\s*$', pd.NA, regex=True)
+            df = df.dropna(subset=["QUANT."])
+            
+            for col in ["VALOR DO CONTRATO", "REPASSE RECEBIDO", "CUSTOS INCORRIDOS", 
+                       "VALOR", "OUTROS CORRELATOS", "VALOR2"]:
+                df[col] = df[col].fillna(0).apply(clean_numeric)
+
+            df = df[df["SALDO A RECEBER"] > 0]
+            df['PAGINA'] = pagina
+            lista_dfs.append(df)
+
+        df_consolidado = pd.concat(lista_dfs, ignore_index=True)
+        df_consolidado['PROJECT_ID'] = pd.factorize(
+            df_consolidado[['QUANT.', 'CLIENTE', 'PROJETO']].apply(lambda row: '_'.join(row.astype(str)), axis=1)
+        )[0] + 1
+        
+        return df_consolidado
+
+    # ---------------------------------------------------
+    # Carregar planilha original
+    # ---------------------------------------------------
     @st.cache_data
     def carregar_planilha():
-        # Baixar o arquivo JSON diretamente do S3
         obj = s3.Bucket('jsoninnovatis').Object('chave2.json').get()
-        # Ler o conteúdo do objeto, decodificar para string e converter para dict
         creds_json = json.loads(obj['Body'].read().decode('utf-8'))
-        # Definir o escopo de acesso para Google Sheets e Google Drive
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        # Criar as credenciais a partir do JSON baixado
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json, scope)
         client = gspread.authorize(creds)
-        # Acessar a planilha do Google
         planilha = client.open("AJUSTADA - Valores a receber Innovatis").worksheet("VALORES A RECEBER")
         st.write("Conectado à planilha com sucesso!")
-        # Obter todos os dados da planilha
         dados = planilha.get_all_records()
-        # Converter os dados para um DataFrame
         df = pd.DataFrame(dados)
         return df
 
-    # Carregar os dados brutos e armazenar em uma variável global
-    df_raw = carregar_planilha()
-
     @st.cache_data
     def preprocess_data(df):
-        # Remover espaços e ajustar nomes de colunas
         df.columns = df.columns.str.strip().str.replace(' ', '_')
         data = df[['FUNDAÇÃO', 'CLIENTE', 'TIPO', 'PREVISÃO_DE_RECEBIMENTO', 'ANO',
                    'SALDO_A_RECEBER', 'CUSTOS_INCORRIDOS', 'OUTROS_E_CORRELATOS']].copy()
         data = data.rename(columns={'OUTROS_E_CORRELATOS': 'CUSTOS_CORRELATOS'})
         
-        # Transformar e unificar colunas para criação da DATA
         data['PREVISÃO_DE_RECEBIMENTO'] = data['PREVISÃO_DE_RECEBIMENTO'].str.strip().replace({
             'Janeiro': '01', 'JANEIRO': '01', 'Fevereiro': '02', 'FEVEREIRO': '02',
             'Março': '03', 'MARÇO': '03', 'Abril': '04', 'ABRIL': '04',
@@ -127,7 +265,7 @@ if st.session_state["authentication_status"]:
         data['CLIENTE'] = data['CLIENTE'].replace({'': 'Não identificado'})
         data = data[data['SALDO_A_RECEBER'] != '']
         data = data[data['TIPO'] != '']
-        # Excluir datas específicas
+        
         datas_excluir = ['01/2024', '02/2024', '03/2024', '04/2024', '05/2024', '06/2024',
                          '07/2024', '08/2024', '09/2024', '10/2024', '11/2024', '12/2024',
                          '01/2023', '02/2023', '03/2023', '04/2023', '05/2023', '06/2023',
@@ -136,14 +274,12 @@ if st.session_state["authentication_status"]:
         data = data[~data['DATA'].isin(datas_excluir)]
         data['TIPO'] = data['TIPO'].replace({'PROJETO/Empresa Privada': 'PROJETO'})
         
-        # Remover o mês anterior
         today = datetime.date.today()
         first_day_this_month = datetime.date(today.year, today.month, 1)
         last_day_prev_month = first_day_this_month - datetime.timedelta(days=1)
         prev_month_str = last_day_prev_month.strftime('%m/%Y')
         data = data[data['DATA'] != prev_month_str]
         
-        # Converter colunas de custo para numérico (vetorizado)
         for col in ['CUSTOS_INCORRIDOS', 'CUSTOS_CORRELATOS']:
             data[col] = (data[col].str.strip()
                          .str.replace('R\$', '', regex=True)
@@ -152,16 +288,9 @@ if st.session_state["authentication_status"]:
             data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0)
         return data
 
-    # Aplicar o pré-processamento e obter os dados processados
-    data = preprocess_data(df_raw)
-
     @st.cache_data
     def load_data(nrows):
         return data.head(nrows)
-
-    data_load_state = st.text('Carregando dados...')
-    data = load_data(10000)
-    data_load_state.text('Carregamento de dados concluído!')
 
     @st.cache_data
     def load_logo():
@@ -169,9 +298,24 @@ if st.session_state["authentication_status"]:
         logo_data = logo_obj['Body'].read()
         return Image.open(BytesIO(logo_data))
 
+    # Carregar dados
+    data_load_state = st.text('Carregando dados...')
+    
+    # Carregar dados originais
+    df_raw = carregar_planilha()
+    data = preprocess_data(df_raw)
+    data = load_data(10000)
+    
+    # Carregar dados para análise de desvio
+    df_desvio = carregar_dados_desvio()
+    
+    data_load_state.text('Carregamento de dados concluído!')
+
+    # Carregar e exibir logo
     logo_image = load_logo()
     st.sidebar.image(logo_image, use_container_width=True)
     
+    # Estilização
     st.markdown("""
         <style>
             [data-testid="stSidebar"] * {
@@ -191,15 +335,126 @@ if st.session_state["authentication_status"]:
             .st-fi { background-color: rgb(49, 170, 77); }
             .st-hy { background-color: rgb(49, 170, 77); }
             .st-f1 { background-color: rgb(49, 170, 77); }
+            
+            /* Botões com fundo branco e detalhes verdes */
+            .stButton > button {
+                background-color: white !important;
+                color: rgb(49, 170, 77) !important;
+                border-color: rgb(49, 170, 77) !important;
+                border-width: 1px !important;
+                border-style: solid !important;
+                font-weight: 500 !important;
+            }
+            .stButton > button:hover {
+                background-color: rgba(49, 170, 77, 0.1) !important;
+                border-color: rgb(49, 170, 77) !important;
+            }
+            .stButton > button:active {
+                background-color: rgba(49, 170, 77, 0.2) !important;
+            }
+            
+            /* Estilo para o slider - versão minimalista */
+            [data-testid="stSlider"] div[data-baseweb="slider"] div[data-testid="stTickBar"] {
+                background-color: transparent !important;
+            }
+            
+            /* Ajuste apenas para a barra do slider e seus valores */
+            [data-testid="stSlider"] [data-baseweb="slider"] div[data-testid="stThumbValue"] {
+                color: rgb(49, 170, 77) !important;
+                background-color: transparent !important;
+                border: none !important;
+            }
+            
+            [data-testid="stSlider"] [data-baseweb="slider-track"] {
+                background-color: rgba(49, 170, 77, 0.2) !important;
+            }
+            
+            [data-testid="stSlider"] [data-baseweb="slider-track-fill"] {
+                background-color: rgb(49, 170, 77) !important;
+            }
+            
+            [data-testid="stSlider"] [data-baseweb="slider-thumb"] {
+                background-color: rgb(49, 170, 77) !important;
+            }
+            
+            /* Valores do slider (que estão em vermelho) */
+            [data-testid="stSlider"] span {
+                color: rgb(49, 170, 77) !important;
+            }
+            
+            /* Texto do slider */
+            [data-testid="stSlider"] p {
+                color: rgb(49, 170, 77) !important;
+            }
+            
+            /* Multiselect e selectbox */
+            .stMultiSelect > div > div > div {
+                border-color: rgb(49, 170, 77) !important;
+            }
+            .stMultiSelect > div > div > div:hover {
+                border-color: rgb(39, 150, 67) !important;
+            }
+            .stMultiSelect > div[data-baseweb="tag"] {
+                background-color: rgb(49, 170, 77) !important;
+            }
+            
+            /* Tabs e outros elementos de navegação */
+            .stTabs [data-baseweb="tab-list"] {
+                border-bottom-color: rgb(49, 170, 77) !important;
+            }
+            .stTabs [data-baseweb="tab"][aria-selected="true"] {
+                color: rgb(49, 170, 77) !important;
+                border-bottom-color: rgb(49, 170, 77) !important;
+            }
+            
+            /* Progress bar */
+            .stProgress > div > div > div > div {
+                background-color: rgb(49, 170, 77) !important;
+            }
+            
+            /* Métricas */
+            .stMetric > div[data-testid="stMetricDelta"] > div {
+                color: rgb(49, 170, 77) !important;
+            }
+            
+            /* Cores de links */
+            a {
+                color: rgb(49, 170, 77) !important;
+            }
+            a:hover {
+                color: rgb(39, 150, 67) !important;
+            }
+            
+            /* Cores de foco */
+            :focus {
+                outline-color: rgb(49, 170, 77) !important;
+            }
+            
+            /* Cores de seleção */
+            ::selection {
+                background-color: rgba(49, 170, 77, 0.3) !important;
+            }
+            
+            /* Cores para elementos de data input */
+            input[type="date"] {
+                color: rgb(49, 170, 77) !important;
+            }
+            
+            /* Cores para tooltips */
+            [data-testid="stTooltipIcon"] path {
+                fill: rgb(49, 170, 77) !important;
+            }
         </style>
     """, unsafe_allow_html=True)
     
     # Filtros interativos
-    st.sidebar.header('Filtros')
-    meses = st.sidebar.multiselect('Meses:', data['DATA'].unique())
-    tipos = st.sidebar.multiselect('Tipos de Serviço:', data['TIPO'].unique())
-    fundacoes = st.sidebar.multiselect('Fundações:', data['FUNDAÇÃO'].unique())
-    clientes = st.sidebar.multiselect('Clientes:', data['CLIENTE'].unique())
+    st.sidebar.header('Filtros:')
+    
+    # Armazenar os filtros em variáveis temporárias
+    meses_temp = st.sidebar.multiselect('Meses:', data['DATA'].unique())
+    tipos_temp = st.sidebar.multiselect('Tipos de Serviço:', data['TIPO'].unique())
+    fundacoes_temp = st.sidebar.multiselect('Fundações:', data['FUNDAÇÃO'].unique())
+    clientes_temp = st.sidebar.multiselect('Clientes:', data['CLIENTE'].unique())
     
     saldo_receber_temp = (data['SALDO_A_RECEBER']
                           .str.strip()
@@ -208,41 +463,233 @@ if st.session_state["authentication_status"]:
                           .str.replace(',', '.'))
     saldo_receber_temp = pd.to_numeric(saldo_receber_temp, errors='coerce')
     
-    min_saldo, max_saldo = st.sidebar.slider(
-        'Selecione o intervalo de valores:',
+    min_saldo_temp, max_saldo_temp = st.sidebar.slider(
+        'Selecione o intervalo:',
         min_value=float(saldo_receber_temp.min()),
         max_value=float(saldo_receber_temp.max()),
         value=(float(saldo_receber_temp.min()), float(saldo_receber_temp.max())),
-        step=1000.0
+        step=1000.0,
+        format="R$ %.2f"  # Formato correto: R$ com ponto decimal
     )
     
+    # Inicializar os filtros na sessão se ainda não existirem
+    if 'meses' not in st.session_state:
+        st.session_state.meses = []
+    if 'tipos' not in st.session_state:
+        st.session_state.tipos = []
+    if 'fundacoes' not in st.session_state:
+        st.session_state.fundacoes = []
+    if 'clientes' not in st.session_state:
+        st.session_state.clientes = []
+    if 'min_saldo' not in st.session_state:
+        st.session_state.min_saldo = float(saldo_receber_temp.min())
+    if 'max_saldo' not in st.session_state:
+        st.session_state.max_saldo = float(saldo_receber_temp.max())
+    
+    # Criar colunas para centralizar os botões
+    col1, col2, col3 = st.sidebar.columns([1,2,1])
+    
+    # Botão para aplicar os filtros
+    with col2:
+        if st.button('Filtrar', use_container_width=True):
+            st.session_state.meses = meses_temp
+            st.session_state.tipos = tipos_temp
+            st.session_state.fundacoes = fundacoes_temp
+            st.session_state.clientes = clientes_temp
+            st.session_state.min_saldo = min_saldo_temp
+            st.session_state.max_saldo = max_saldo_temp
+            st.rerun()  # Método atualizado para recarregar a página
+    
+    # Usar os filtros armazenados na sessão para filtrar os dados
     filtered_data = data.copy()
-    if meses:
-        filtered_data = filtered_data[filtered_data['DATA'].isin(meses)]
-    if tipos:
-        filtered_data = filtered_data[filtered_data['TIPO'].isin(tipos)]
-    if fundacoes:
-        filtered_data = filtered_data[filtered_data['FUNDAÇÃO'].isin(fundacoes)]
-    if clientes:
-        filtered_data = filtered_data[filtered_data['CLIENTE'].isin(clientes)]
+    if st.session_state.meses:
+        filtered_data = filtered_data[filtered_data['DATA'].isin(st.session_state.meses)]
+    if st.session_state.tipos:
+        filtered_data = filtered_data[filtered_data['TIPO'].isin(st.session_state.tipos)]
+    if st.session_state.fundacoes:
+        filtered_data = filtered_data[filtered_data['FUNDAÇÃO'].isin(st.session_state.fundacoes)]
+    if st.session_state.clientes:
+        filtered_data = filtered_data[filtered_data['CLIENTE'].isin(st.session_state.clientes)]
     
     filtered_data['SALDO_A_RECEBER'] = saldo_receber_temp
-    filtered_data = filtered_data[(filtered_data['SALDO_A_RECEBER'] >= min_saldo) &
-                                  (filtered_data['SALDO_A_RECEBER'] <= max_saldo)]
+    filtered_data = filtered_data[(filtered_data['SALDO_A_RECEBER'] >= st.session_state.min_saldo) &
+                                  (filtered_data['SALDO_A_RECEBER'] <= st.session_state.max_saldo)]
     
-    st.sidebar.subheader('Resumo dos Filtros')
+    # Botão para limpar todos os filtros
+    with col2:
+        if st.button('Limpar', use_container_width=True):
+            st.session_state.meses = []
+            st.session_state.tipos = []
+            st.session_state.fundacoes = []
+            st.session_state.clientes = []
+            st.session_state.min_saldo = float(saldo_receber_temp.min())
+            st.session_state.max_saldo = float(saldo_receber_temp.max())
+            st.rerun()  # Método atualizado para recarregar a página
+    
+    st.sidebar.subheader('Resumo dos Filtros:')
     st.sidebar.write('Número de linhas:', filtered_data.shape[0])
     total_a_receber_filtrado = filtered_data['SALDO_A_RECEBER'].sum()
-    total_a_receber_filtrado_real = f'R${total_a_receber_filtrado:,.2f}'
+    total_a_receber_filtrado_real = f'R$ {total_a_receber_filtrado:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
     st.sidebar.write('Valor Total a Receber:', total_a_receber_filtrado_real)
     
     st.subheader('Valor Total a Receber pela Empresa:')
     st.write(f'<p style="font-size:40px">{total_a_receber_filtrado_real}</p>', unsafe_allow_html=True)
     
-    if st.checkbox('Mostrar planilha filtrada'):
+    # Modificar o checkbox para um botão com o mesmo estilo
+    if st.button('Mostrar Planilha Filtrada', key='btn_mostrar_planilha'):
         st.markdown("<h3 style='font-size:140%;'>Planilha de Contas a Receber - Higienizada em tempo real</h3>", unsafe_allow_html=True)
-        st.write(filtered_data)
+        
+        # Preparar os dados para exibição formatada
+        df_exibir = filtered_data.copy()
+        
+        # Converter a coluna SALDO_A_RECEBER para numérico se ainda não estiver
+        if not pd.api.types.is_numeric_dtype(df_exibir['SALDO_A_RECEBER']):
+            df_exibir['SALDO_A_RECEBER'] = pd.to_numeric(df_exibir['SALDO_A_RECEBER'], errors='coerce')
+        
+        # Aplicar formatação monetária usando o mesmo padrão da tabela de desvios
+        st.dataframe(
+            df_exibir.style.format({
+                'SALDO_A_RECEBER': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'),
+                'CUSTOS_INCORRIDOS': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'),
+                'CUSTOS_CORRELATOS': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.')
+            }, decimal=',', thousands='.'),
+            use_container_width=True
+        )
+        
         st.markdown(f"<p style='font-size:140%;'>Tamanho da amostra: {filtered_data.shape[0]}</p>", unsafe_allow_html=True)
+
+    # Dashboard de Desvio de Proporção
+    st.markdown("---")
+    st.subheader("Desvio na Proporção dos Repasses")
+
+    # Calcular métricas de desvio
+    tolerance = 20.0
+    df_desvio['PROP_REPASSE'] = df_desvio.apply(
+        lambda row: row['REPASSE RECEBIDO'] / row['VALOR DO CONTRATO']
+        if row['REPASSE RECEBIDO'] and row['VALOR DO CONTRATO'] != 0 else np.nan, axis=1)
+
+    df_desvio['EXPECTED_VALOR'] = df_desvio.apply(
+        lambda row: row['CUSTOS INCORRIDOS'] * row['PROP_REPASSE']
+        if pd.notna(row['PROP_REPASSE']) and row['CUSTOS INCORRIDOS'] != 0 else np.nan, axis=1)
+
+    df_desvio['EXPECTED_VALOR2'] = df_desvio.apply(
+        lambda row: row['OUTROS CORRELATOS'] * row['PROP_REPASSE']
+        if pd.notna(row['PROP_REPASSE']) and row['OUTROS CORRELATOS'] != 0 else np.nan, axis=1)
+
+    df_desvio['EXPECTED_VALOR_RND'] = df_desvio['EXPECTED_VALOR'].round(2)
+    df_desvio['EXPECTED_VALOR2_RND'] = df_desvio['EXPECTED_VALOR2'].round(2)
+    df_desvio['VALOR_RND'] = df_desvio['VALOR'].round(2)
+    df_desvio['VALOR2_RND'] = df_desvio['VALOR2'].round(2)
+
+    df_desvio['DESVIO_VALOR'] = df_desvio.apply(
+        lambda row: True if (pd.notna(row['EXPECTED_VALOR_RND']) and 
+                          (row['EXPECTED_VALOR_RND'] - row['VALOR_RND'] > tolerance))
+                    else False, axis=1)
+
+    df_desvio['DESVIO_VALOR2'] = df_desvio.apply(
+        lambda row: True if (pd.notna(row['EXPECTED_VALOR2_RND']) and 
+                          (row['EXPECTED_VALOR2_RND'] - row['VALOR2_RND'] > tolerance))
+                    else False, axis=1)
+
+    df_desvio['DESVIO_PROPORCAO'] = df_desvio['DESVIO_VALOR'] | df_desvio['DESVIO_VALOR2']
+
+    # Calcular o desvio em reais somando as diferenças dos dois tipos
+    df_desvio['DESVIO_VALOR_REAIS'] = df_desvio.apply(
+        lambda row: (row['EXPECTED_VALOR_RND'] - row['VALOR_RND']) 
+        if pd.notna(row['EXPECTED_VALOR_RND']) and pd.notna(row['VALOR_RND']) else 0, axis=1
+    )
+    
+    df_desvio['DESVIO_VALOR2_REAIS'] = df_desvio.apply(
+        lambda row: (row['EXPECTED_VALOR2_RND'] - row['VALOR2_RND']) 
+        if pd.notna(row['EXPECTED_VALOR2_RND']) and pd.notna(row['VALOR2_RND']) else 0, axis=1
+    )
+    
+    # Somar os dois tipos de desvio para obter o desvio total em reais
+    df_desvio['DESVIO_EM_REAIS'] = df_desvio['DESVIO_VALOR_REAIS'] + df_desvio['DESVIO_VALOR2_REAIS']
+    
+    # Garantir que registros com valor total do desvio igual a zero reais não entrem no modelo
+    df_desvio.loc[df_desvio['DESVIO_EM_REAIS'] <= 0, 'DESVIO_PROPORCAO'] = False
+
+    # Exibir métricas do dashboard de desvio
+    total_registros = len(df_desvio)
+    registros_com_desvio = df_desvio['DESVIO_PROPORCAO'].sum()
+    percentual_conformidade = ((total_registros - registros_com_desvio) / total_registros) * 100
+
+    # Criando layout com 5 colunas para melhor distribuição visual
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric(label="Total de Registros", value=total_registros)
+    with col2:
+        st.metric(label="Registros com Desvio", value=int(registros_com_desvio))
+    with col3:
+        st.metric(label="Conformidade", value=f"{percentual_conformidade:.1f}%")
+    with col4:
+        st.metric(label="Desvio Total", value=f"R$ {df_desvio['DESVIO_EM_REAIS'].sum():,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'))
+    with col5:
+        desvio_medio = df_desvio.loc[df_desvio['DESVIO_PROPORCAO'], 'DESVIO_EM_REAIS'].mean()
+        valor_formatado = f"R$ {desvio_medio:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.').replace('_', '.') if not np.isnan(desvio_medio) else "R$ 0,00"
+        st.metric(label="Desvio Médio", value=valor_formatado)
+
+
+    # Botão para mostrar registros com desvio de proporção
+    if st.button("Mostrar Registros com Desvio de Proporção"):
+        # Filtrar apenas os registros que têm desvio
+        df_com_desvio = df_desvio[df_desvio['DESVIO_PROPORCAO'] == True].copy()
+
+        # Calcular o desvio total somando as diferenças de ambos os tipos de NF
+        df_com_desvio['DESVIO_INCORRIDOS'] = df_com_desvio.apply(
+            lambda row: (row['EXPECTED_VALOR_RND'] - row['VALOR_RND']) 
+            if pd.notna(row['EXPECTED_VALOR_RND']) and pd.notna(row['VALOR_RND']) else 0, axis=1
+        )
+
+        df_com_desvio['DESVIO_CORRELATOS'] = df_com_desvio.apply(
+            lambda row: (row['EXPECTED_VALOR2_RND'] - row['VALOR2_RND']) 
+            if pd.notna(row['EXPECTED_VALOR2_RND']) and pd.notna(row['VALOR2_RND']) else 0, axis=1
+        )
+
+        # Somar os dois tipos de desvio para obter o desvio total
+        df_com_desvio['DESVIO_EM_REAIS'] = df_com_desvio['DESVIO_INCORRIDOS'] + df_com_desvio['DESVIO_CORRELATOS']
+
+        # Filtrar para remover registros com desvio total igual a zero
+        df_com_desvio = df_com_desvio[df_com_desvio['DESVIO_EM_REAIS'] > 0]
+
+        if not df_com_desvio.empty:
+            # Selecionar e renomear colunas para exibição
+            colunas_exibir = {
+                'CLIENTE': 'Cliente',
+                'PROJETO': 'Projeto',
+                'EXPECTED_VALOR_RND': 'NF Incorridos Esperada',
+                'VALOR_RND': 'NF Incorridos Emitida',
+                'EXPECTED_VALOR2_RND': 'NF Correlatos Esperado',
+                'VALOR2_RND': 'NF Correlatos Emitida',
+                'DESVIO_EM_REAIS': 'Desvio (R$)'
+            }
+
+            df_exibir = df_com_desvio[list(colunas_exibir.keys())].rename(columns=colunas_exibir)
+
+            # Preencher valores vazios com 0
+            df_exibir.fillna(0, inplace=True)
+
+            # Exibir a tabela com os registros que têm desvio, formatando valores monetários corretamente
+            st.subheader(f"Registros com Desvio de Proporção ({len(df_exibir)} encontrados)")
+            st.dataframe(
+                df_exibir.style.format({
+                    'NF Incorridos Esperada': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'),
+                    'NF Incorridos Emitida': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'),
+                    'NF Correlatos Esperado': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'),
+                    'NF Correlatos Emitida': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'),
+                    'Desvio (R$)': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.')
+                }, decimal=',', thousands='.'),
+                use_container_width=True
+            )
+        else:
+            st.info("Não foram encontrados registros com desvio de proporção.")
+
+
+
+    # Adicionando espaço após as métricas
+    st.markdown("---")
     
     # Criando colunas para os gráficos
     row1_col1, row1_col2 = st.columns(2)
@@ -297,7 +744,7 @@ if st.session_state["authentication_status"]:
         ax_bar.tick_params(axis='x', labelsize=4)
         ax_bar.tick_params(axis='y', labelsize=4)
         for i, v in enumerate(agrupado['SALDO_A_RECEBER']):
-            ax_bar.text(v + (v * 0.01), i, f'R${v:,.2f}M', va='center', fontsize=4, color='black')
+            ax_bar.text(v + (v * 0.01), i, f'R$ {v:,.2f}M'.replace(',', '_').replace('.', ',').replace('_', '.'), va='center', fontsize=4, color='black')
         st.pyplot(fig_bar, use_container_width=False)
     
     # Gráfico de Pizza: Distribuição dos Custos Incorridos e Correlatos
@@ -336,7 +783,7 @@ if st.session_state["authentication_status"]:
             def my_autopct(pct):
                 total = sum(values)
                 val = pct * total / 100.0
-                return f'{pct:.1f}%\nR${val:,.2f}'
+                return f'{pct:.1f}%\nR$ {val:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
             return my_autopct
         
         fig_pizza, ax_pizza = plt.subplots(figsize=(2, 2))
@@ -384,7 +831,8 @@ if st.session_state["authentication_status"]:
         ax_bar_fundacao.set_xlabel('Fundação', fontsize=5)
         for i, v in enumerate(total_a_receber_por_fundacao['SALDO_A_RECEBER']):
             num_val = float(v)
-            ax_bar_fundacao.text(i, num_val + 10000, f'R${num_val:,.0f}', ha='center', va='bottom', fontsize=5)
+            ax_bar_fundacao.text(i, num_val + 10000, f'R$ {num_val:,.0f}'.replace(',', '_').replace('.', ',').replace('_', '.'), 
+                                ha='center', va='bottom', fontsize=5)
         plt.ticklabel_format(axis='y', style='plain')
         plt.xticks(rotation=0, ha='center', fontsize=5)
         plt.yticks(fontsize=5)
@@ -423,7 +871,8 @@ if st.session_state["authentication_status"]:
         ax_bar_tipo.set_xlabel('Tipo de Serviço', fontsize=5)
         for i, v in enumerate(total_a_receber_por_tipo['SALDO_A_RECEBER']):
             num_val = float(v)
-            ax_bar_tipo.text(i, num_val + 10000, f'R${num_val:,.0f}', ha='center', va='bottom', fontsize=5)
+            ax_bar_tipo.text(i, num_val + 10000, f'R$ {num_val:,.0f}'.replace(',', '_').replace('.', ',').replace('_', '.'), 
+                            ha='center', va='bottom', fontsize=5)
         plt.ticklabel_format(axis='y', style='plain')
         plt.xticks(rotation=0, ha='center', fontsize=5)
         plt.yticks(fontsize=5)
