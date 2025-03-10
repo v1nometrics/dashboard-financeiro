@@ -481,6 +481,10 @@ if st.session_state["authentication_status"]:
             [data-testid="stSlider"] [data-testid="stThumbValue"] {
                 color: rgb(49, 170, 77) !important;
             }
+                
+            [data-testid="stSlider"] p {
+                color: rgb(49, 170, 77) !important;
+            }
             
         </style>
     """, unsafe_allow_html=True)
