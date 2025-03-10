@@ -471,6 +471,11 @@ if st.session_state["authentication_status"]:
             .stSlider > div > div > div {
                 background-color: white !important;
             }
+                
+            .stSlider > div > div > div {
+                background-color: #ffffff00 !important;
+            }
+                
         </style>
     """, unsafe_allow_html=True)
     
