@@ -18,6 +18,10 @@ import numpy as np
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 import io
+import os
+
+github_token = os.getenv("STREAMLIT_GITHUB_TOKEN")
+
 
 
 # Carregar flat logo via URL direta
