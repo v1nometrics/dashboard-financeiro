@@ -313,25 +313,7 @@ if st.session_state["authentication_status"]:
 
     # Carregar e exibir logo
     logo_image = load_logo()
-    st.sidebar.markdown("""
-        <style>
-            [data-testid="stSidebarNav"] {
-                background-image: none;
-            }
-            [data-testid="stSidebar"] > div:first-child {
-                padding-top: 0;
-            }
-            [data-testid="stImage"] {
-                text-align: center;
-                display: block;
-                margin-left: auto;
-                margin-right: auto;
-                width: 80%; /* Ajuste a largura conforme necessário */
-                padding: 20px 0; /* Adiciona espaço acima e abaixo da logo */
-            }
-        </style>
-    """, unsafe_allow_html=True)
-    st.sidebar.image(logo_image, use_container_width=False)
+    st.sidebar.image(logo_image, use_container_width=True)
     
     # Estilização
     st.markdown("""
