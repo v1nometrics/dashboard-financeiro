@@ -479,7 +479,19 @@ if st.session_state["authentication_status"]:
         </style>
     """, unsafe_allow_html=True)
     
-    # Inicializar as variáveis de sessão para os filtros temporários se ainda não existirem
+    # Inicializar todas as variáveis de sessão necessárias
+    if 'meses' not in st.session_state:
+        st.session_state.meses = []
+    if 'tipos' not in st.session_state:
+        st.session_state.tipos = []
+    if 'fundacoes' not in st.session_state:
+        st.session_state.fundacoes = []
+    if 'clientes' not in st.session_state:
+        st.session_state.clientes = []
+    if 'min_saldo' not in st.session_state:
+        st.session_state.min_saldo = None
+    if 'max_saldo' not in st.session_state:
+        st.session_state.max_saldo = None
     if 'temp_filters' not in st.session_state:
         st.session_state.temp_filters = {
             'meses': [],
@@ -492,7 +504,7 @@ if st.session_state["authentication_status"]:
 
     # Filtros interativos
     st.sidebar.header('Filtros:')
-    
+
     # Função para atualizar filtros temporários sem recarregar
     def update_temp_filter(filter_name, value):
         st.session_state.temp_filters[filter_name] = value
@@ -502,38 +514,34 @@ if st.session_state["authentication_status"]:
         'Meses:', 
         data['DATA'].unique(),
         default=st.session_state.temp_filters['meses'],
-        on_change=update_temp_filter,
-        args=('meses',),
         key='meses_select'
     )
+    st.session_state.temp_filters['meses'] = meses_temp
 
     tipos_temp = st.sidebar.multiselect(
         'Tipos de Serviço:', 
         data['TIPO'].unique(),
         default=st.session_state.temp_filters['tipos'],
-        on_change=update_temp_filter,
-        args=('tipos',),
         key='tipos_select'
     )
+    st.session_state.temp_filters['tipos'] = tipos_temp
 
     fundacoes_temp = st.sidebar.multiselect(
         'Fundações:', 
         data['FUNDAÇÃO'].unique(),
         default=st.session_state.temp_filters['fundacoes'],
-        on_change=update_temp_filter,
-        args=('fundacoes',),
         key='fundacoes_select'
     )
+    st.session_state.temp_filters['fundacoes'] = fundacoes_temp
 
     clientes_temp = st.sidebar.multiselect(
         'Clientes:', 
         data['CLIENTE'].unique(),
         default=st.session_state.temp_filters['clientes'],
-        on_change=update_temp_filter,
-        args=('clientes',),
         key='clientes_select'
     )
-    
+    st.session_state.temp_filters['clientes'] = clientes_temp
+
     saldo_receber_temp = (data['SALDO_A_RECEBER']
                           .str.strip()
                           .str.replace('R$', '')
