@@ -472,6 +472,16 @@ if st.session_state["authentication_status"]:
                 background-color: #ffffff00 !important;
             }
                 
+            /* Corrigir cor do texto do slider */
+            [data-testid="stSlider"] > div > div > div > p {
+                color: rgb(49, 51, 63) !important;  /* Cor padrão do texto do Streamlit */
+            }
+            
+            /* Manter apenas os valores em verde */
+            [data-testid="stSlider"] [data-testid="stThumbValue"] {
+                color: rgb(49, 170, 77) !important;
+            }
+            
         </style>
     """, unsafe_allow_html=True)
     
