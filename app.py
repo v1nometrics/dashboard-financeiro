@@ -483,7 +483,7 @@ if st.session_state["authentication_status"]:
             }
                 
             [data-testid="stSlider"] p {
-                color: rgb(49, 170, 77) !important;
+                color: rgb(49, 51, 63) !important;
             }
             
         </style>
