@@ -353,10 +353,6 @@ if st.session_state["authentication_status"]:
                 background-color: rgba(49, 170, 77, 0.2) !important;
             }
             
-            /* Estilo para o slider - versão minimalista */
-            [data-testid="stSlider"] div[data-baseweb="slider"] div[data-testid="stTickBar"] {
-                background-color: transparent !important;
-            }
             
             /* Ajuste apenas para a barra do slider e seus valores */
             [data-testid="stSlider"] [data-baseweb="slider"] div[data-testid="stThumbValue"] {
