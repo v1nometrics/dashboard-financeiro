@@ -479,14 +479,60 @@ if st.session_state["authentication_status"]:
         </style>
     """, unsafe_allow_html=True)
     
+    # Inicializar as variáveis de sessão para os filtros temporários se ainda não existirem
+    if 'temp_filters' not in st.session_state:
+        st.session_state.temp_filters = {
+            'meses': [],
+            'tipos': [],
+            'fundacoes': [],
+            'clientes': [],
+            'min_saldo': None,
+            'max_saldo': None
+        }
+
     # Filtros interativos
     st.sidebar.header('Filtros:')
     
-    # Armazenar os filtros em variáveis temporárias
-    meses_temp = st.sidebar.multiselect('Meses:', data['DATA'].unique())
-    tipos_temp = st.sidebar.multiselect('Tipos de Serviço:', data['TIPO'].unique())
-    fundacoes_temp = st.sidebar.multiselect('Fundações:', data['FUNDAÇÃO'].unique())
-    clientes_temp = st.sidebar.multiselect('Clientes:', data['CLIENTE'].unique())
+    # Função para atualizar filtros temporários sem recarregar
+    def update_temp_filter(filter_name, value):
+        st.session_state.temp_filters[filter_name] = value
+
+    # Armazenar os filtros em variáveis temporárias usando callbacks
+    meses_temp = st.sidebar.multiselect(
+        'Meses:', 
+        data['DATA'].unique(),
+        default=st.session_state.temp_filters['meses'],
+        on_change=update_temp_filter,
+        args=('meses',),
+        key='meses_select'
+    )
+
+    tipos_temp = st.sidebar.multiselect(
+        'Tipos de Serviço:', 
+        data['TIPO'].unique(),
+        default=st.session_state.temp_filters['tipos'],
+        on_change=update_temp_filter,
+        args=('tipos',),
+        key='tipos_select'
+    )
+
+    fundacoes_temp = st.sidebar.multiselect(
+        'Fundações:', 
+        data['FUNDAÇÃO'].unique(),
+        default=st.session_state.temp_filters['fundacoes'],
+        on_change=update_temp_filter,
+        args=('fundacoes',),
+        key='fundacoes_select'
+    )
+
+    clientes_temp = st.sidebar.multiselect(
+        'Clientes:', 
+        data['CLIENTE'].unique(),
+        default=st.session_state.temp_filters['clientes'],
+        on_change=update_temp_filter,
+        args=('clientes',),
+        key='clientes_select'
+    )
     
     saldo_receber_temp = (data['SALDO_A_RECEBER']
                           .str.strip()
@@ -495,44 +541,65 @@ if st.session_state["authentication_status"]:
                           .str.replace(',', '.'))
     saldo_receber_temp = pd.to_numeric(saldo_receber_temp, errors='coerce')
     
+    min_saldo = float(saldo_receber_temp.min())
+    max_saldo = float(saldo_receber_temp.max())
+
+    if st.session_state.temp_filters['min_saldo'] is None:
+        st.session_state.temp_filters['min_saldo'] = min_saldo
+    if st.session_state.temp_filters['max_saldo'] is None:
+        st.session_state.temp_filters['max_saldo'] = max_saldo
+
     min_saldo_temp, max_saldo_temp = st.sidebar.slider(
         'Selecione o intervalo:',
-        min_value=float(saldo_receber_temp.min()),
-        max_value=float(saldo_receber_temp.max()),
-        value=(float(saldo_receber_temp.min()), float(saldo_receber_temp.max())),
+        min_value=min_saldo,
+        max_value=max_saldo,
+        value=(st.session_state.temp_filters['min_saldo'], 
+               st.session_state.temp_filters['max_saldo']),
         step=1000.0,
-        format="R$ %.2f"  # Formato correto: R$ com ponto decimal
+        format="R$ %.2f",
+        key='saldo_slider'
     )
-    
-    # Inicializar os filtros na sessão se ainda não existirem
-    if 'meses' not in st.session_state:
-        st.session_state.meses = []
-    if 'tipos' not in st.session_state:
-        st.session_state.tipos = []
-    if 'fundacoes' not in st.session_state:
-        st.session_state.fundacoes = []
-    if 'clientes' not in st.session_state:
-        st.session_state.clientes = []
-    if 'min_saldo' not in st.session_state:
-        st.session_state.min_saldo = float(saldo_receber_temp.min())
-    if 'max_saldo' not in st.session_state:
-        st.session_state.max_saldo = float(saldo_receber_temp.max())
-    
+
+    # Atualizar valores temporários do slider
+    st.session_state.temp_filters['min_saldo'] = min_saldo_temp
+    st.session_state.temp_filters['max_saldo'] = max_saldo_temp
+
     # Criar colunas para centralizar os botões
     col1, col2, col3 = st.sidebar.columns([1,2,1])
-    
+
     # Botão para aplicar os filtros
     with col2:
         if st.button('Filtrar', use_container_width=True):
-            st.session_state.meses = meses_temp
-            st.session_state.tipos = tipos_temp
-            st.session_state.fundacoes = fundacoes_temp
-            st.session_state.clientes = clientes_temp
-            st.session_state.min_saldo = min_saldo_temp
-            st.session_state.max_saldo = max_saldo_temp
-            st.rerun()  # Método atualizado para recarregar a página
-    
-    # Usar os filtros armazenados na sessão para filtrar os dados
+            # Aplicar os filtros temporários aos filtros ativos
+            st.session_state.meses = st.session_state.temp_filters['meses']
+            st.session_state.tipos = st.session_state.temp_filters['tipos']
+            st.session_state.fundacoes = st.session_state.temp_filters['fundacoes']
+            st.session_state.clientes = st.session_state.temp_filters['clientes']
+            st.session_state.min_saldo = st.session_state.temp_filters['min_saldo']
+            st.session_state.max_saldo = st.session_state.temp_filters['max_saldo']
+            st.rerun()
+
+    # Botão para limpar todos os filtros
+    with col2:
+        if st.button('Limpar', use_container_width=True):
+            # Limpar tanto os filtros temporários quanto os ativos
+            st.session_state.temp_filters = {
+                'meses': [],
+                'tipos': [],
+                'fundacoes': [],
+                'clientes': [],
+                'min_saldo': min_saldo,
+                'max_saldo': max_saldo
+            }
+            st.session_state.meses = []
+            st.session_state.tipos = []
+            st.session_state.fundacoes = []
+            st.session_state.clientes = []
+            st.session_state.min_saldo = min_saldo
+            st.session_state.max_saldo = max_saldo
+            st.rerun()
+
+    # Usar os filtros ATIVOS (não os temporários) para filtrar os dados
     filtered_data = data.copy()
     if st.session_state.meses:
         filtered_data = filtered_data[filtered_data['DATA'].isin(st.session_state.meses)]
@@ -546,17 +613,6 @@ if st.session_state["authentication_status"]:
     filtered_data['SALDO_A_RECEBER'] = saldo_receber_temp
     filtered_data = filtered_data[(filtered_data['SALDO_A_RECEBER'] >= st.session_state.min_saldo) &
                                   (filtered_data['SALDO_A_RECEBER'] <= st.session_state.max_saldo)]
-    
-    # Botão para limpar todos os filtros
-    with col2:
-        if st.button('Limpar', use_container_width=True):
-            st.session_state.meses = []
-            st.session_state.tipos = []
-            st.session_state.fundacoes = []
-            st.session_state.clientes = []
-            st.session_state.min_saldo = float(saldo_receber_temp.min())
-            st.session_state.max_saldo = float(saldo_receber_temp.max())
-            st.rerun()  # Método atualizado para recarregar a página
     
     st.sidebar.subheader('Resumo dos Filtros:')
     st.sidebar.write('Número de linhas:', filtered_data.shape[0])
