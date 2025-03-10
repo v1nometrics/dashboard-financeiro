@@ -444,6 +444,33 @@ if st.session_state["authentication_status"]:
             [data-testid="stTooltipIcon"] path {
                 fill: rgb(49, 170, 77) !important;
             }
+
+            /* Corrigir cor de fundo dos campos de seleção */
+            .stSelectbox > div > div,
+            .stMultiSelect > div > div {
+                background-color: white !important;
+            }
+
+            /* Manter apenas a borda verde */
+            .stSelectbox > div > div[data-baseweb="select"] {
+                border-color: #31aa4d !important;
+                background-color: white !important;
+            }
+
+            /* Corrigir cor de fundo do dropdown quando aberto */
+            .stSelectbox > div > div > div {
+                background-color: white !important;
+            }
+
+            /* Corrigir cor de hover nas opções */
+            .stSelectbox > div > div > div:hover {
+                background-color: rgba(49, 170, 77, 0.1) !important;
+            }
+
+            /* Corrigir cor de fundo do slider */
+            .stSlider > div > div > div {
+                background-color: white !important;
+            }
         </style>
     """, unsafe_allow_html=True)
     
