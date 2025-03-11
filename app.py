@@ -922,3 +922,8 @@ if st.session_state["authentication_status"]:
         plt.yticks(fontsize=5)
         plt.tight_layout()
         st.pyplot(fig_bar_tipo, use_container_width=False)
+
+
+# Rodapé
+st.markdown("---")
+st.caption("Dashboard Financeiro Versão 1.1 © 2025")
