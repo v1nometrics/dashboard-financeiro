@@ -24,7 +24,7 @@ import io
 
 # Carregar flat logo via URL direta
 logo_flat = 'https://www.innovatismc.com.br/wp-content/uploads/2023/12/logo-innovatis-flatico-150x150.png'
-st.set_page_config(layout="wide", page_title='DASHBOARD v1.1', page_icon=logo_flat)
+st.set_page_config(layout="wide", page_title='DASHBOARD v1.2', page_icon=logo_flat)
 
 # Importa a fonte Poppins do Google Fonts
 st.markdown("""
@@ -40,7 +40,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Título do aplicativo
-st.title('Dashboard Financeiro (v1.1)')
+st.title('Dashboard Financeiro (v1.2)')
 
 # Importar arquivo de configuração
 with open('config.yaml') as file:
@@ -272,15 +272,11 @@ if st.session_state["authentication_status"]:
                          '07/2024', '08/2024', '09/2024', '10/2024', '11/2024', '12/2024',
                          '01/2023', '02/2023', '03/2023', '04/2023', '05/2023', '06/2023',
                          '07/2023', '08/2023', '09/2023', '10/2023', '11/2023', '12/2023',
-                         '01/2025']
+                         ]
         data = data[~data['DATA'].isin(datas_excluir)]
         data['TIPO'] = data['TIPO'].replace({'PROJETO/Empresa Privada': 'PROJETO'})
         
-        today = datetime.date.today()
-        first_day_this_month = datetime.date(today.year, today.month, 1)
-        last_day_prev_month = first_day_this_month - datetime.timedelta(days=1)
-        prev_month_str = last_day_prev_month.strftime('%m/%Y')
-        data = data[data['DATA'] != prev_month_str]
+       
         
         for col in ['CUSTOS_INCORRIDOS', 'CUSTOS_CORRELATOS']:
             data[col] = (data[col].str.strip()
@@ -494,8 +490,24 @@ if st.session_state["authentication_status"]:
     # Filtros interativos
     st.sidebar.header('Filtros:')
     
+    # Função auxiliar para ordenar meses no formato MM/AAAA
+    def ordenar_datas(datas):
+        # Filtrar apenas datas válidas (no formato MM/AAAA)
+        datas_validas = [d for d in datas if d != 'A definir' and re.match(r'^\d{2}/\d{4}$', d)]
+        # Converter para objetos datetime para ordenação
+        datas_dt = [pd.to_datetime(d, format='%m/%Y') for d in datas_validas]
+        # Criar dicionário para mapear datas string para objetos datetime
+        data_map = dict(zip(datas_validas, datas_dt))
+        # Ordenar as datas válidas
+        datas_ordenadas = sorted(datas_validas, key=lambda d: data_map[d])
+        # Adicionar 'A definir' ao final, se existir
+        if 'A definir' in datas:
+            datas_ordenadas.append('A definir')
+        return datas_ordenadas
+    
     # Armazenar os filtros em variáveis temporárias
-    meses_temp = st.sidebar.multiselect('Meses:', data['DATA'].unique())
+    meses_disponiveis = ordenar_datas(data['DATA'].unique())
+    meses_temp = st.sidebar.multiselect('Meses:', meses_disponiveis)
     tipos_temp = st.sidebar.multiselect('Tipos de Serviço:', data['TIPO'].unique())
     fundacoes_temp = st.sidebar.multiselect('Fundações:', data['FUNDAÇÃO'].unique())
     clientes_temp = st.sidebar.multiselect('Clientes:', data['CLIENTE'].unique())
@@ -583,6 +595,10 @@ if st.session_state["authentication_status"]:
     if st.button('Mostrar Planilha Filtrada', key='btn_mostrar_planilha'):
         st.markdown("<h3 style='font-size:140%;'>Planilha de Contas a Receber - Higienizada em tempo real</h3>", unsafe_allow_html=True)
         
+        st.info("""
+        Esta tabela mostra todos os registros de contas a receber aplicando os filtros selecionados no painel lateral.
+        """)
+        
         # Preparar os dados para exibição formatada
         df_exibir = filtered_data.copy()
         
@@ -602,9 +618,106 @@ if st.session_state["authentication_status"]:
         
         st.markdown(f"<p style='font-size:140%;'>Tamanho da amostra: {filtered_data.shape[0]}</p>", unsafe_allow_html=True)
 
+    # Dashboard de Alerta para Saldos em Atraso
+    st.markdown("---")
+    st.subheader("Pagamentos em Atraso ⚠️")
+    
+    # Obter mês atual
+    mes_atual = datetime.datetime.now().strftime('%m/%Y')
+    
+    # Converter as datas para datetime para comparação
+    data_copy = data.copy()
+    
+    # Filtrar apenas os registros com data válida (não 'A definir')
+    data_copy = data_copy[data_copy['DATA'] != 'A definir']
+    
+    # Converter coluna DATA para datetime para comparação
+    try:
+        data_copy['DATA_DT'] = pd.to_datetime(data_copy['DATA'], format='%m/%Y', errors='coerce')
+        mes_atual_dt = pd.to_datetime(mes_atual, format='%m/%Y')
+        
+        # Encontrar registros com data anterior ao mês atual
+        registros_atrasados = data_copy[data_copy['DATA_DT'] < mes_atual_dt]
+        
+        # Converter SALDO_A_RECEBER para numérico se ainda não estiver
+        registros_atrasados['SALDO_A_RECEBER'] = pd.to_numeric(
+            registros_atrasados['SALDO_A_RECEBER'].str.strip()
+            .str.replace('R$', '')
+            .str.replace('.', '')
+            .str.replace(',', '.'),
+            errors='coerce'
+        )
+        
+        # Filtrar apenas registros com saldo maior que zero
+        registros_atrasados = registros_atrasados[registros_atrasados['SALDO_A_RECEBER'] > 0]
+        
+        # Calcular o total atrasado
+        total_atrasado = registros_atrasados['SALDO_A_RECEBER'].sum()
+        total_atrasado_formatado = f'R$ {total_atrasado:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
+        
+        # Verificar se existem registros atrasados
+        if len(registros_atrasados) > 0:
+            # Criar duas colunas para exibir métricas
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric(
+                    label=f"Registros com saldo a receber vencidos (antes de {mes_atual})", 
+                    value=len(registros_atrasados)
+                )
+            
+            with col2:
+                st.metric(
+                    label="Valor total em atraso", 
+                    value=total_atrasado_formatado
+                )
+            
+            # Botão para mostrar detalhes dos registros atrasados
+            if st.button("Mostrar Registros em Atraso"):
+                # Preparar dataframe para exibição formatada
+                df_atrasados_exibir = registros_atrasados.copy()
+                
+                st.info("""
+                Esta tabela apresenta todos os registros com prazos de recebimento vencidos, ou seja, 
+                valores que deveriam ter sido recebidos em meses anteriores e ainda não foram quitados. 
+                A coluna "ATRASO_MESES" indica há quantos meses o pagamento está pendente, permitindo 
+                priorizar as cobranças mais antigas.
+                """)
+                
+                # Ordenar por data (mais antigo primeiro)
+                df_atrasados_exibir = df_atrasados_exibir.sort_values(by='DATA_DT')
+                
+                # Calcular atraso em meses
+                def calcular_meses_atraso(data_registro):
+                    if pd.isnull(data_registro):
+                        return 0
+                    delta = (mes_atual_dt.year - data_registro.year) * 12 + (mes_atual_dt.month - data_registro.month)
+                    return delta
+                
+                # Aplicar função para calcular atraso em meses
+                df_atrasados_exibir['ATRASO_MESES'] = df_atrasados_exibir['DATA_DT'].apply(calcular_meses_atraso)
+                
+                # Selecionar e reordenar colunas relevantes
+                colunas_exibir = ['DATA', 'CLIENTE', 'FUNDAÇÃO', 'TIPO', 'SALDO_A_RECEBER', 'ATRASO_MESES']
+                df_atrasados_exibir = df_atrasados_exibir[colunas_exibir]
+                
+                # Formatar o dataframe para exibição
+                st.dataframe(
+                    df_atrasados_exibir.style.format({
+                        'SALDO_A_RECEBER': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'),
+                        'ATRASO_MESES': lambda x: f"{int(x)} {'mês' if int(x) == 1 else 'meses'}"
+                    }, decimal=',', thousands='.'),
+                    use_container_width=True
+                )
+        else:
+            st.success("Não há registros com saldo a receber em atraso! Todos os valores estão dentro do prazo.")
+    except Exception as e:
+        st.error(f"Erro ao processar alertas: {str(e)}")
+        st.info("Verifique se o formato das datas está correto (MM/AAAA).")
+
     # Dashboard de Desvio de Proporção
     st.markdown("---")
-    st.subheader("Desvio na Proporção dos Repasses")
+    st.subheader("Desvio na Proporção dos Repasses 🔍")
 
     # Calcular métricas de desvio
     tolerance = 20.0
@@ -653,7 +766,80 @@ if st.session_state["authentication_status"]:
     
     # Garantir que registros com valor total do desvio igual a zero reais não entrem no modelo
     df_desvio.loc[df_desvio['DESVIO_EM_REAIS'] <= 0, 'DESVIO_PROPORCAO'] = False
-
+    
+    # Nova lógica: verificar desvios por bloco de projeto
+    # Este cálculo corrige casos onde múltiplas linhas do mesmo projeto podem parecer em desvio
+    # individualmente, mas quando analisadas em conjunto (como um bloco) estão corretas.
+    # Exemplo: Um projeto com dois repasses (33% e 34%) pode ter múltiplos pagamentos distribuídos
+    # que não correspondem linha a linha, mas que no total representam a proporção correta.
+    df_desvio_por_projeto = df_desvio.copy()
+    
+    # Agrupar por projeto para somar valores de múltiplas linhas do mesmo projeto
+    projeto_totals = df_desvio_por_projeto.groupby(['QUANT.', 'CLIENTE', 'PROJETO']).agg({
+        'REPASSE RECEBIDO': 'sum',
+        'VALOR DO CONTRATO': 'first',  # Assume que é o mesmo para todas as linhas do projeto
+        'CUSTOS INCORRIDOS': 'first',  # Assume que é o mesmo para todas as linhas do projeto
+        'VALOR': 'sum',                # Soma todos os valores recebidos para este projeto
+        'OUTROS CORRELATOS': 'first',  # Assume que é o mesmo para todas as linhas do projeto
+        'VALOR2': 'sum',               # Soma todos os valores correlatos recebidos
+        'PROJECT_ID': 'first'          # Identificador único do projeto
+    }).reset_index()
+    
+    # Recalcular a proporção e desvios a nível de projeto agrupado
+    projeto_totals['PROP_REPASSE_GRUPO'] = projeto_totals.apply(
+        lambda row: row['REPASSE RECEBIDO'] / row['VALOR DO CONTRATO'] 
+        if row['VALOR DO CONTRATO'] > 0 else 0, axis=1
+    )
+    
+    projeto_totals['EXPECTED_VALOR_GRUPO'] = projeto_totals.apply(
+        lambda row: row['CUSTOS INCORRIDOS'] * row['PROP_REPASSE_GRUPO'] 
+        if row['PROP_REPASSE_GRUPO'] > 0 else 0, axis=1
+    )
+    
+    projeto_totals['EXPECTED_VALOR2_GRUPO'] = projeto_totals.apply(
+        lambda row: row['OUTROS CORRELATOS'] * row['PROP_REPASSE_GRUPO'] 
+        if row['PROP_REPASSE_GRUPO'] > 0 else 0, axis=1
+    )
+    
+    # Arredondar para comparação consistente
+    projeto_totals['EXPECTED_VALOR_RND_GRUPO'] = projeto_totals['EXPECTED_VALOR_GRUPO'].round(2)
+    projeto_totals['EXPECTED_VALOR2_RND_GRUPO'] = projeto_totals['EXPECTED_VALOR2_GRUPO'].round(2)
+    projeto_totals['VALOR_RND_GRUPO'] = projeto_totals['VALOR'].round(2)
+    projeto_totals['VALOR2_RND_GRUPO'] = projeto_totals['VALOR2'].round(2)
+    
+    # Calcular desvios a nível de grupo
+    projeto_totals['DESVIO_VALOR_GRUPO'] = projeto_totals.apply(
+        lambda row: True if (pd.notna(row['EXPECTED_VALOR_RND_GRUPO']) and 
+                          (row['EXPECTED_VALOR_RND_GRUPO'] - row['VALOR_RND_GRUPO'] > tolerance))
+                    else False, axis=1
+    )
+    
+    projeto_totals['DESVIO_VALOR2_GRUPO'] = projeto_totals.apply(
+        lambda row: True if (pd.notna(row['EXPECTED_VALOR2_RND_GRUPO']) and 
+                          (row['EXPECTED_VALOR2_RND_GRUPO'] - row['VALOR2_RND_GRUPO'] > tolerance))
+                    else False, axis=1
+    )
+    
+    # Flag de desvio a nível de grupo
+    projeto_totals['DESVIO_PROPORCAO_GRUPO'] = projeto_totals['DESVIO_VALOR_GRUPO'] | projeto_totals['DESVIO_VALOR2_GRUPO']
+    
+    # Corrigir o desvio no dataframe original com base na análise por grupo
+    # Se um projeto não tem desvio no nível agrupado, corrigir o flag de desvio para todas as suas linhas
+    for idx, row in projeto_totals.iterrows():
+        if not row['DESVIO_PROPORCAO_GRUPO']:
+            # Selecionar todas as linhas deste projeto no dataframe original
+            projeto_mask = (df_desvio['QUANT.'] == row['QUANT.']) & \
+                          (df_desvio['CLIENTE'] == row['CLIENTE']) & \
+                          (df_desvio['PROJETO'] == row['PROJETO'])
+            
+            # Desativar flag de desvio para todas as linhas deste projeto
+            df_desvio.loc[projeto_mask, 'DESVIO_PROPORCAO'] = False
+            
+            # Também zerar o valor do desvio monetário para essas linhas
+            df_desvio.loc[projeto_mask, 'DESVIO_VALOR_REAIS'] = 0
+            df_desvio.loc[projeto_mask, 'DESVIO_VALOR2_REAIS'] = 0
+            df_desvio.loc[projeto_mask, 'DESVIO_EM_REAIS'] = 0
+    
     # Exibir métricas do dashboard de desvio
     total_registros = len(df_desvio)
     registros_com_desvio = df_desvio['DESVIO_PROPORCAO'].sum()
@@ -678,7 +864,15 @@ if st.session_state["authentication_status"]:
 
     # Botão para mostrar registros com desvio de proporção
     if st.button("Mostrar Registros com Desvio de Proporção"):
-        # Filtrar apenas os registros que têm desvio
+        # Remover checkbox e todo código relacionado
+        st.info("""
+        Esta tabela mostra projetos onde há um descompasso financeiro entre o que a fundação recebeu e o que 
+        foi repassado à Innovatis. Quando a fundação recebe 60% do valor do contrato, por exemplo, nossa 
+        empresa deveria receber cerca de 60% dos valores previstos. Quando isso não acontece, significa que 
+        há dinheiro que deveria ter sido repassado, mas não foi.
+        """)
+        
+        # Filtrar apenas os registros que têm desvio após a análise por bloco
         df_com_desvio = df_desvio[df_desvio['DESVIO_PROPORCAO'] == True].copy()
 
         # Calcular o desvio total somando as diferenças de ambos os tipos de NF
@@ -699,10 +893,28 @@ if st.session_state["authentication_status"]:
         df_com_desvio = df_com_desvio[df_com_desvio['DESVIO_EM_REAIS'] > 0]
 
         if not df_com_desvio.empty:
+            # Adicionar informação sobre a proporção no nível do projeto
+            # Mapear a proporção de repasse por projeto para cada linha
+            projeto_prop_map = dict(zip(
+                projeto_totals['PROJECT_ID'],
+                projeto_totals['PROP_REPASSE_GRUPO']
+            ))
+            
+            # Adicionar coluna com a proporção total do projeto
+            df_com_desvio['PROP_PROJETO'] = df_com_desvio['PROJECT_ID'].map(projeto_prop_map)
+            df_com_desvio['PROP_PROJETO'] = df_com_desvio['PROP_PROJETO'].fillna(0) * 100  # Converter para percentual
+            
+            # Converter PROP_REPASSE para percentual também
+            df_com_desvio['PROP_REPASSE'] = df_com_desvio['PROP_REPASSE'] * 100
+            
             # Selecionar e renomear colunas para exibição
             colunas_exibir = {
+                'QUANT.': 'Quant.',
                 'CLIENTE': 'Cliente',
                 'PROJETO': 'Projeto',
+                'PAGINA': 'Página de Origem',
+                'PROP_REPASSE': '% Repasse na Linha',
+                'PROP_PROJETO': '% Repasse do Projeto',
                 'EXPECTED_VALOR_RND': 'NF Incorridos Esperada',
                 'VALOR_RND': 'NF Incorridos Emitida',
                 'EXPECTED_VALOR2_RND': 'NF Correlatos Esperado',
@@ -723,7 +935,10 @@ if st.session_state["authentication_status"]:
                     'NF Incorridos Emitida': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'),
                     'NF Correlatos Esperado': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'),
                     'NF Correlatos Emitida': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'),
-                    'Desvio (R$)': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.')
+                    'Desvio (R$)': lambda x: f"R$ {x:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'),
+                    '% Repasse na Linha': lambda x: f"{x:.1f}%",
+                    '% Repasse do Projeto': lambda x: f"{x:.1f}%",
+                    'Quant.': lambda x: f"{int(x)}"
                 }, decimal=',', thousands='.'),
                 use_container_width=True
             )
@@ -748,7 +963,7 @@ if st.session_state["authentication_status"]:
         col_date, col_tipo, col_fundacao = st.columns(3)
         
         with col_date:
-            datas_disponiveis = sorted(data['DATA'].unique())
+            datas_disponiveis = ordenar_datas(data['DATA'].unique())
             datas_selecionadas = st.multiselect("Data:", datas_disponiveis, default=[], key="data_cliente")
         with col_tipo:
             tipos_disponiveis = sorted(data['TIPO'].unique())
@@ -796,7 +1011,7 @@ if st.session_state["authentication_status"]:
         st.subheader('Distribuição dos Custos')
         col1, col2, col3 = st.columns(3)
         with col1:
-            datas_disponiveis_custos = sorted(data['DATA'].unique())
+            datas_disponiveis_custos = ordenar_datas(data['DATA'].unique())
             datas_selecionadas_custos = st.multiselect("Data:", datas_disponiveis_custos, default=[], key="data_custos")
         with col2:
             fundacoes_disponiveis_custos = sorted(data['FUNDAÇÃO'].unique())
@@ -848,7 +1063,7 @@ if st.session_state["authentication_status"]:
         st.subheader('Valor a Receber por Fundação')
         col_date, col_tipo = st.columns(2)
         with col_date:
-            datas_disponiveis_fundacao = sorted(data['DATA'].unique())
+            datas_disponiveis_fundacao = ordenar_datas(data['DATA'].unique())
             datas_selecionadas_fundacao = st.multiselect("Data:", datas_disponiveis_fundacao, default=[], key="data_fundacao")
         with col_tipo:
             tipos_disponiveis = sorted(data['TIPO'].unique())
@@ -888,7 +1103,7 @@ if st.session_state["authentication_status"]:
         st.subheader('Valor a Receber por Tipo de Serviço')
         col_date, col_fundacao = st.columns(2)
         with col_date:
-            datas_disponiveis_tipo = sorted(data['DATA'].unique())
+            datas_disponiveis_tipo = ordenar_datas(data['DATA'].unique())
             datas_selecionadas_tipo = st.multiselect("Data:", datas_disponiveis_tipo, default=[], key="data_tipo")
         with col_fundacao:
             fundacoes_disponiveis_tipo = sorted(data['FUNDAÇÃO'].unique())
@@ -926,4 +1141,4 @@ if st.session_state["authentication_status"]:
 
 # Rodapé
 st.markdown("---")
-st.caption("Dashboard Financeiro Versão 1.1 © 2025")
+st.markdown("<div style='text-align: center;'>Dashboard Financeiro Versão 1.2 © 2025</div>", unsafe_allow_html=True)
