@@ -614,7 +614,7 @@ if st.session_state["authentication_status"]:
 
     # Dashboard de Alerta para Saldos em Atraso
     st.markdown("---")
-    st.subheader("Pagamentos em Atraso ⚠️")
+    st.subheader("Repasses em Atraso ⚠️")
     
     # Obter mês atual
     mes_atual = datetime.datetime.now().strftime('%m/%Y')
