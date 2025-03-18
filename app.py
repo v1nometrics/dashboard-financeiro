@@ -674,7 +674,7 @@ if st.session_state["authentication_status"]:
                 st.info("""
                 Esta tabela apresenta todos os registros com prazos de recebimento vencidos, ou seja, 
                 valores que deveriam ter sido recebidos em meses anteriores e ainda não foram quitados. 
-                A coluna "ATRASO_MESES" indica há quantos meses o pagamento está pendente, permitindo 
+                A coluna "ATRASO_MESES" indica há quantos meses o repasse está pendente, permitindo 
                 priorizar as cobranças mais antigas.
                 """)
                 
