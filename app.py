@@ -101,7 +101,7 @@ if st.session_state["authentication_status"]:
         
         # Conectar via gspread para abrir a planilha e obter seu file ID
         client = gspread.authorize(creds)
-        planilha = client.open("Cópia de Valores a Rebecer Innovatis - Fundações (12)")
+        planilha = client.open("Valores a Rebecer Innovatis - Fundações")
         file_id = planilha.id  # Obtém o ID da planilha
         
         # Conectar à API do Google Drive para exportar a planilha como XLSX
