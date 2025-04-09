@@ -1804,13 +1804,7 @@ if st.session_state["authentication_status"]:
                 st.session_state.show_table = False
                 st.rerun()  # Force rerun to hide the table
                     
-            elif st.session_state.show_table:
-                st.warning("Nenhum dado encontrado para os filtros selecionados.")
-                
-                # Add a button to close the warning too
-                if st.button("Fechar", key="btn_fechar_aviso"):
-                    st.session_state.show_table = False
-                    st.rerun()  # Force rerun to hide the warning
+
 
         # --- End Planilha de Contas a Receber Section ---
 
@@ -2145,12 +2139,21 @@ if st.session_state["authentication_status"]:
                             use_container_width=True
                         )
 
+                        # Add a button to close the table
+                        if st.button("Fechar Tabela", key="btn_fechar_tabela"):
+                            st.session_state.show_table = False
+                            st.rerun()  # Force rerun to hide the table
+
                         # --- Removed Download Button Logic from here --- #
 
                 else:
                     st.success("Não há projetos com saldo a receber em atraso!")
+                    
         else:
             st.success("Não há projetos com linhas de repasse em atraso!")
+        
+
+    
 
         # Dashboard de Desvio de Proporção
         st.markdown("---")
@@ -2550,7 +2553,7 @@ if st.session_state["authentication_status"]:
                 )
                 
                 # Add a button to close the table
-                if st.button("Fechar Tabela de Desvios", key="btn_fechar_desvio"):
+                if st.button("Fechar Tabela", key="btn_fechar_desvio"):
                     st.session_state.show_desvio_table = False
                     st.rerun()  # Force rerun to hide the table
             # --- End Desvio de Proporção Section Logic ---
