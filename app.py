@@ -2628,436 +2628,446 @@ if st.session_state["authentication_status"]:
         st.subheader("Análise Gráfica")
         st.markdown("<p style='margin-bottom: 20px;'>Visualizações gráficas dos dados financeiros possivelmente úteis para tomadas de decisão.</p>", unsafe_allow_html=True)
 
-        # Inicializar estado para os filtros dos gráficos se não existir
-        if 'graph_filters' not in st.session_state:
-            st.session_state.graph_filters = {
-                'cliente': {'datas': [], 'tipos': [], 'fundacoes': []},
-                'fundacao': {'datas': [], 'tipos': []},
-                'tipo': {'datas': [], 'fundacoes': []},
-                'custos': {'datas': [], 'fundacoes': [], 'clientes': []}
-            }
-            
-        # Função de callback para atualizar os filtros sem refresh completo
-        def update_graph_filter(graph_type, filter_type, value):
-            st.session_state.graph_filters[graph_type][filter_type] = value
+        # Wrap graphic analysis section in try-except
+        try:
+            # Inicializar estado para os filtros dos gráficos se não existir
+            if 'graph_filters' not in st.session_state:
+                st.session_state.graph_filters = {
+                    'cliente': {'datas': [], 'tipos': [], 'fundacoes': []},
+                    'fundacao': {'datas': [], 'tipos': []},
+                    'tipo': {'datas': [], 'fundacoes': []},
+                    'custos': {'datas': [], 'fundacoes': [], 'clientes': []}
+                }
+                
+            # Função de callback para atualizar os filtros sem refresh completo
+            def update_graph_filter(graph_type, filter_type, value):
+                st.session_state.graph_filters[graph_type][filter_type] = value
 
-        # Criando colunas para os gráficos
-        row1_col1, row1_col2 = st.columns(2)
-        row2_col1, row2_col2 = st.columns(2)
+            # Criando colunas para os gráficos
+            row1_col1, row1_col2 = st.columns(2)
+            row2_col1, row2_col2 = st.columns(2)
 
-        def gerar_analise_grafico(dados, tipo_grafico):
-            """
-            Gera análise automática dos dados do gráfico usando IA simples.
-            
-            Args:
-                dados: DataFrame pandas com os dados do gráfico
-                tipo_grafico: string indicando o tipo de gráfico ('fundacao', 'tipo', 'cliente', 'custos')
-            
-            Returns:
-                String com análise gerada sobre os dados
-            """
-            try:
-                if tipo_grafico == 'fundacao':
-                    # Análise para gráfico de Valor a Receber por Fundação
-                    total = dados['SALDO A RECEBER'].sum()
-                    maior_fundacao = dados.iloc[0]['FUNDAÇÃO']
-                    valor_maior = dados.iloc[0]['SALDO A RECEBER']
-                    percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
-                    
-                    # Calcular a concentração nas 3 principais fundações
-                    top3_valor = dados.head(3)['SALDO A RECEBER'].sum()
-                    top3_percentual = (top3_valor / total) * 100 if total > 0 else 0
-                    
-                    analise = f"""
-                    <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
-                        <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> A fundação <strong>{maior_fundacao}</strong> representa {percentual_maior:.1f}% do total a receber.
-                        As três principais fundações concentram {top3_percentual:.1f}% do valor total.</p>
-                    </div>
-                    """
-                    
-                elif tipo_grafico == 'tipo':
-                    # Análise para gráfico de Valor a Receber por Tipo de Serviço
-                    total = dados['SALDO A RECEBER'].sum()
-                    maior_tipo = dados.iloc[0]['TIPO']
-                    valor_maior = dados.iloc[0]['SALDO A RECEBER']
-                    percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
-                    
-                    # Verificar diversificação dos tipos de serviço
-                    qtd_tipos = len(dados)
-                    diversificacao = "alta" if qtd_tipos >= 4 else "média" if qtd_tipos >= 2 else "baixa"
-                    
-                    analise = f"""
-                    <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
-                        <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> O serviço <strong>{maior_tipo}</strong> representa {percentual_maior:.1f}% do total a receber.
-                        A diversificação de serviços é {diversificacao} com {qtd_tipos} tipos diferentes.</p>
-                    </div>
-                    """
-                    
-                elif tipo_grafico == 'cliente':
-                    # Análise para gráfico de Distribuição por Cliente
-                    maior_cliente = dados.iloc[-1]['CLIENTE AGRUPADO']  # Último item devido ao sort ascending=True
-                    valor_maior = dados.iloc[-1]['SALDO A RECEBER']
-                    total = dados['SALDO A RECEBER'].sum()
-                    percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
-                    
-                    # Verificar concentração em "Outros"
-                    tem_outros = 'Outros' in dados['CLIENTE AGRUPADO'].values
-                    
-                    if tem_outros:
-                        valor_outros = dados[dados['CLIENTE AGRUPADO'] == 'Outros']['SALDO A RECEBER'].sum()
-                        percentual_outros = (valor_outros / total) * 100 if total > 0 else 0
-                        analise_outros = f"Clientes menores ('Outros') representam {percentual_outros:.1f}% do faturamento."
+            def gerar_analise_grafico(dados, tipo_grafico):
+                """
+                Gera análise automática dos dados do gráfico usando IA simples.
+                
+                Args:
+                    dados: DataFrame pandas com os dados do gráfico
+                    tipo_grafico: string indicando o tipo de gráfico ('fundacao', 'tipo', 'cliente', 'custos')
+                
+                Returns:
+                    String com análise gerada sobre os dados
+                """
+                try:
+                    if tipo_grafico == 'fundacao':
+                        # Análise para gráfico de Valor a Receber por Fundação
+                        total = dados['SALDO A RECEBER'].sum()
+                        maior_fundacao = dados.iloc[0]['FUNDAÇÃO']
+                        valor_maior = dados.iloc[0]['SALDO A RECEBER']
+                        percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
+                        
+                        # Calcular a concentração nas 3 principais fundações
+                        top3_valor = dados.head(3)['SALDO A RECEBER'].sum()
+                        top3_percentual = (top3_valor / total) * 100 if total > 0 else 0
+                        
+                        analise = f"""
+                        <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
+                            <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> A fundação <strong>{maior_fundacao}</strong> representa {percentual_maior:.1f}% do total a receber.
+                            As três principais fundações concentram {top3_percentual:.1f}% do valor total.</p>
+                        </div>
+                        """
+                        
+                    elif tipo_grafico == 'tipo':
+                        # Análise para gráfico de Valor a Receber por Tipo de Serviço
+                        total = dados['SALDO A RECEBER'].sum()
+                        maior_tipo = dados.iloc[0]['TIPO']
+                        valor_maior = dados.iloc[0]['SALDO A RECEBER']
+                        percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
+                        
+                        # Verificar diversificação dos tipos de serviço
+                        qtd_tipos = len(dados)
+                        diversificacao = "alta" if qtd_tipos >= 4 else "média" if qtd_tipos >= 2 else "baixa"
+                        
+                        analise = f"""
+                        <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
+                            <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> O serviço <strong>{maior_tipo}</strong> representa {percentual_maior:.1f}% do total a receber.
+                            A diversificação de serviços é {diversificacao} com {qtd_tipos} tipos diferentes.</p>
+                        </div>
+                        """
+                        
+                    elif tipo_grafico == 'cliente':
+                        # Análise para gráfico de Distribuição por Cliente
+                        maior_cliente = dados.iloc[-1]['CLIENTE AGRUPADO']  # Último item devido ao sort ascending=True
+                        valor_maior = dados.iloc[-1]['SALDO A RECEBER']
+                        total = dados['SALDO A RECEBER'].sum()
+                        percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
+                        
+                        # Verificar concentração em "Outros"
+                        tem_outros = 'Outros' in dados['CLIENTE AGRUPADO'].values
+                        
+                        if tem_outros:
+                            valor_outros = dados[dados['CLIENTE AGRUPADO'] == 'Outros']['SALDO A RECEBER'].sum()
+                            percentual_outros = (valor_outros / total) * 100 if total > 0 else 0
+                            analise_outros = f"Clientes menores ('Outros') representam {percentual_outros:.1f}% do faturamento."
+                        else:
+                            analise_outros = "Não há clientes agrupados na categoria 'Outros'."
+                        
+                        analise = f"""
+                        <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
+                            <p style='font-size: 14px; margin: 0;'><strong> Análise em tempo real:</strong> O cliente <strong>{maior_cliente}</strong> representa {percentual_maior:.1f}% do valor total a receber.
+                            {analise_outros}</p>
+                        </div>
+                        """
+                        
+                    elif tipo_grafico == 'custos':
+                        # Análise para gráfico de Distribuição dos Custos
+                        total = sum(dados)
+                        percentual_incorridos = (dados[0] / total) * 100 if total > 0 else 0
+                        percentual_correlatos = (dados[1] / total) * 100 if total > 0 else 0
+                        
+                        razao = dados[0] / dados[1] if dados[1] > 0 else float('inf')
+                        analise_razao = f"Os custos incorridos são {razao:.1f}x maiores que os correlatos."
+                        
+                        analise = f"""
+                        <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
+                            <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> Custos incorridos representam {percentual_incorridos:.1f}% do total.
+                            {analise_razao}</p>
+                        </div>
+                        """
                     else:
-                        analise_outros = "Não há clientes agrupados na categoria 'Outros'."
+                        analise = "<div></div>"
+                        
+                    return analise
+                except Exception as e:
+                    return f"<div style='color: #999; font-size: 12px;'>Não foi possível gerar análise: {str(e)}</div>"
+
+            # Gráfico de barras horizontais - Distribuição por Cliente
+            with row2_col1:
+                st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Distribuição por Cliente</h3>", unsafe_allow_html=True)
+                
+                col_date, col_tipo, col_fundacao = st.columns(3)
+                
+                with col_date:
+                    datas_disponiveis = ordenar_datas(data['DATA'].unique())
+                    datas_selecionadas = st.multiselect(
+                        "Data:", 
+                        datas_disponiveis, 
+                        default=st.session_state.graph_filters['cliente']['datas'],
+                        key="cliente_data_select",
+                        on_change=update_graph_filter,
+                        args=('cliente', 'datas', st.session_state.get('cliente_data_select', []))
+                    )
+                    # Atualizar valores no session_state
+                    st.session_state.graph_filters['cliente']['datas'] = datas_selecionadas
                     
-                    analise = f"""
-                    <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
-                        <p style='font-size: 14px; margin: 0;'><strong> Análise em tempo real:</strong> O cliente <strong>{maior_cliente}</strong> representa {percentual_maior:.1f}% do valor total a receber.
-                        {analise_outros}</p>
-                    </div>
-                    """
+                with col_tipo:
+                    tipos_disponiveis = sorted(data['TIPO'].unique())
+                    tipos_selecionados = st.multiselect(
+                        "Tipo de Serviço:", 
+                        tipos_disponiveis, 
+                        default=st.session_state.graph_filters['cliente']['tipos'],
+                        key="cliente_tipo_select",
+                        on_change=update_graph_filter,
+                        args=('cliente', 'tipos', st.session_state.get('cliente_tipo_select', []))
+                    )
+                    # Atualizar valores no session_state
+                    st.session_state.graph_filters['cliente']['tipos'] = tipos_selecionados
                     
-                elif tipo_grafico == 'custos':
-                    # Análise para gráfico de Distribuição dos Custos
-                    total = sum(dados)
-                    percentual_incorridos = (dados[0] / total) * 100 if total > 0 else 0
-                    percentual_correlatos = (dados[1] / total) * 100 if total > 0 else 0
+                with col_fundacao:
+                    fundacoes_disponiveis = sorted(data['FUNDAÇÃO'].unique())
+                    fundacoes_selecionadas = st.multiselect(
+                        "Fundação:", 
+                        fundacoes_disponiveis, 
+                        default=st.session_state.graph_filters['cliente']['fundacoes'],
+                        key="cliente_fundacao_select",
+                        on_change=update_graph_filter,
+                        args=('cliente', 'fundacoes', st.session_state.get('cliente_fundacao_select', []))
+                    )
+                    # Atualizar valores no session_state
+                    st.session_state.graph_filters['cliente']['fundacoes'] = fundacoes_selecionadas
+                
+                # Use values from session state for filtering
+                dados_local = data.copy()
+                if st.session_state.graph_filters['cliente']['datas']:
+                    dados_local = dados_local[dados_local['DATA'].isin(st.session_state.graph_filters['cliente']['datas'])]
+                if st.session_state.graph_filters['cliente']['tipos']:
+                    dados_local = dados_local[dados_local['TIPO'].isin(st.session_state.graph_filters['cliente']['tipos'])]
+                if st.session_state.graph_filters['cliente']['fundacoes']:
+                    dados_local = dados_local[dados_local['FUNDAÇÃO'].isin(st.session_state.graph_filters['cliente']['fundacoes'])]
                     
-                    razao = dados[0] / dados[1] if dados[1] > 0 else float('inf')
-                    analise_razao = f"Os custos incorridos são {razao:.1f}x maiores que os correlatos."
+                # Create the graph
+                total_por_cliente = dados_local.groupby('CLIENTE')['SALDO A RECEBER'].sum().reset_index()
+                total_por_cliente = total_por_cliente.sort_values(by='SALDO A RECEBER', ascending=False)
+                total_por_cliente['CLIENTE AGRUPADO'] = total_por_cliente['CLIENTE']
+                total_por_cliente.loc[
+                    total_por_cliente['SALDO A RECEBER'] / total_por_cliente['SALDO A RECEBER'].sum() < 0.03,
+                    'CLIENTE AGRUPADO'
+                ] = 'Outros'
+                
+                agrupado = total_por_cliente.groupby('CLIENTE AGRUPADO')['SALDO A RECEBER'].sum().reset_index()
+                agrupado = agrupado.sort_values(by='SALDO A RECEBER', ascending=True)
+                agrupado['SALDO A RECEBER'] /= 1_000_000
+                
+                cores = colors_palette[:len(agrupado)]
+                fig_bar, ax_bar = plt.subplots(figsize=(3, 2))
+                ax_bar.barh(agrupado['CLIENTE AGRUPADO'], agrupado['SALDO A RECEBER'], color=cores)
+                ax_bar.set_xlabel('Saldo a Receber (em milhões)', fontsize=5)
+                ax_bar.set_ylabel('Cliente', fontsize=5)
+                ax_bar.ticklabel_format(style='plain', axis='x', useOffset=False)
+                ax_bar.tick_params(axis='x', labelsize=4)
+                ax_bar.tick_params(axis='y', labelsize=4)
+                for i, v in enumerate(agrupado['SALDO A RECEBER']):
+                    ax_bar.text(v + (v * 0.01), i, f'R$ {v:,.2f}M'.replace(',', '_').replace('.', ',').replace('_', '.'), va='center', fontsize=4, color='black')
+                st.pyplot(fig_bar, use_container_width=False)
+                
+                # Adicionar análise automática
+                analise_cliente = gerar_analise_grafico(agrupado, 'cliente')
+                st.markdown(analise_cliente, unsafe_allow_html=True)
+                
+            # Gráfico de Pizza: Distribuição dos Custos Incorridos e Correlatos
+            with row2_col2:
+                st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Distribuição dos Custos</h3>", unsafe_allow_html=True)
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    datas_disponiveis_custos = ordenar_datas(data['DATA'].unique())
+                    datas_selecionadas_custos = st.multiselect(
+                        "Data:", 
+                        datas_disponiveis_custos, 
+                        default=st.session_state.graph_filters['custos']['datas'],
+                        key="custos_data_select",
+                        on_change=update_graph_filter,
+                        args=('custos', 'datas', st.session_state.get('custos_data_select', []))
+                    )
+                    st.session_state.graph_filters['custos']['datas'] = datas_selecionadas_custos
                     
-                    analise = f"""
-                    <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
-                        <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> Custos incorridos representam {percentual_incorridos:.1f}% do total.
-                        {analise_razao}</p>
-                    </div>
-                    """
-                else:
-                    analise = "<div></div>"
+                with col2:
+                    fundacoes_disponiveis_custos = sorted(data['FUNDAÇÃO'].unique())
+                    fundacoes_selecionadas_custos = st.multiselect(
+                        "Fundação:", 
+                        fundacoes_disponiveis_custos, 
+                        default=st.session_state.graph_filters['custos']['fundacoes'],
+                        key="custos_fundacao_select",
+                        on_change=update_graph_filter,
+                        args=('custos', 'fundacoes', st.session_state.get('custos_fundacao_select', []))
+                    )
+                    st.session_state.graph_filters['custos']['fundacoes'] = fundacoes_selecionadas_custos
                     
-                return analise
-            except Exception as e:
-                return f"<div style='color: #999; font-size: 12px;'>Não foi possível gerar análise: {str(e)}</div>"
+                with col3:
+                    clientes_disponiveis_custos = sorted(data['CLIENTE'].unique())
+                    clientes_selecionados_custos = st.multiselect(
+                        "Cliente:", 
+                        clientes_disponiveis_custos, 
+                        default=st.session_state.graph_filters['custos']['clientes'],
+                        key="custos_cliente_select",
+                        on_change=update_graph_filter,
+                        args=('custos', 'clientes', st.session_state.get('custos_cliente_select', []))
+                    )
+                    st.session_state.graph_filters['custos']['clientes'] = clientes_selecionados_custos
+                    
+                dados_local_custos = data.copy()
+                if st.session_state.graph_filters['custos']['datas']:
+                    dados_local_custos = dados_local_custos[dados_local_custos['DATA'].isin(st.session_state.graph_filters['custos']['datas'])]
+                if st.session_state.graph_filters['custos']['fundacoes']:
+                    dados_local_custos = dados_local_custos[dados_local_custos['FUNDAÇÃO'].isin(st.session_state.graph_filters['custos']['fundacoes'])]
+                if st.session_state.graph_filters['custos']['clientes']:
+                    dados_local_custos = dados_local_custos[dados_local_custos['CLIENTE'].isin(st.session_state.graph_filters['custos']['clientes'])]
 
-        # Gráfico de barras horizontais - Distribuição por Cliente
-        with row2_col1:
-            st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Distribuição por Cliente</h3>", unsafe_allow_html=True)
-            
-            col_date, col_tipo, col_fundacao = st.columns(3)
-            
-            with col_date:
-                datas_disponiveis = ordenar_datas(data['DATA'].unique())
-                datas_selecionadas = st.multiselect(
-                    "Data:", 
-                    datas_disponiveis, 
-                    default=st.session_state.graph_filters['cliente']['datas'],
-                    key="cliente_data_select",
-                    on_change=update_graph_filter,
-                    args=('cliente', 'datas', st.session_state.get('cliente_data_select', []))
-                )
-                # Atualizar valores no session_state
-                st.session_state.graph_filters['cliente']['datas'] = datas_selecionadas
-                
-            with col_tipo:
-                tipos_disponiveis = sorted(data['TIPO'].unique())
-                tipos_selecionados = st.multiselect(
-                    "Tipo de Serviço:", 
-                    tipos_disponiveis, 
-                    default=st.session_state.graph_filters['cliente']['tipos'],
-                    key="cliente_tipo_select",
-                    on_change=update_graph_filter,
-                    args=('cliente', 'tipos', st.session_state.get('cliente_tipo_select', []))
-                )
-                # Atualizar valores no session_state
-                st.session_state.graph_filters['cliente']['tipos'] = tipos_selecionados
-                
-            with col_fundacao:
-                fundacoes_disponiveis = sorted(data['FUNDAÇÃO'].unique())
-                fundacoes_selecionadas = st.multiselect(
-                    "Fundação:", 
-                    fundacoes_disponiveis, 
-                    default=st.session_state.graph_filters['cliente']['fundacoes'],
-                    key="cliente_fundacao_select",
-                    on_change=update_graph_filter,
-                    args=('cliente', 'fundacoes', st.session_state.get('cliente_fundacao_select', []))
-                )
-                # Atualizar valores no session_state
-                st.session_state.graph_filters['cliente']['fundacoes'] = fundacoes_selecionadas
-            
-            # Use values from session state for filtering
-            dados_local = data.copy()
-            if st.session_state.graph_filters['cliente']['datas']:
-                dados_local = dados_local[dados_local['DATA'].isin(st.session_state.graph_filters['cliente']['datas'])]
-            if st.session_state.graph_filters['cliente']['tipos']:
-                dados_local = dados_local[dados_local['TIPO'].isin(st.session_state.graph_filters['cliente']['tipos'])]
-            if st.session_state.graph_filters['cliente']['fundacoes']:
-                dados_local = dados_local[dados_local['FUNDAÇÃO'].isin(st.session_state.graph_filters['cliente']['fundacoes'])]
-                
-            # Create the graph
-            total_por_cliente = dados_local.groupby('CLIENTE')['SALDO A RECEBER'].sum().reset_index()
-            total_por_cliente = total_por_cliente.sort_values(by='SALDO A RECEBER', ascending=False)
-            total_por_cliente['CLIENTE AGRUPADO'] = total_por_cliente['CLIENTE']
-            total_por_cliente.loc[
-                total_por_cliente['SALDO A RECEBER'] / total_por_cliente['SALDO A RECEBER'].sum() < 0.03,
-                'CLIENTE AGRUPADO'
-            ] = 'Outros'
-            
-            agrupado = total_por_cliente.groupby('CLIENTE AGRUPADO')['SALDO A RECEBER'].sum().reset_index()
-            agrupado = agrupado.sort_values(by='SALDO A RECEBER', ascending=True)
-            agrupado['SALDO A RECEBER'] /= 1_000_000
-            
-            cores = colors_palette[:len(agrupado)]
-            fig_bar, ax_bar = plt.subplots(figsize=(3, 2))
-            ax_bar.barh(agrupado['CLIENTE AGRUPADO'], agrupado['SALDO A RECEBER'], color=cores)
-            ax_bar.set_xlabel('Saldo a Receber (em milhões)', fontsize=5)
-            ax_bar.set_ylabel('Cliente', fontsize=5)
-            ax_bar.ticklabel_format(style='plain', axis='x', useOffset=False)
-            ax_bar.tick_params(axis='x', labelsize=4)
-            ax_bar.tick_params(axis='y', labelsize=4)
-            for i, v in enumerate(agrupado['SALDO A RECEBER']):
-                ax_bar.text(v + (v * 0.01), i, f'R$ {v:,.2f}M'.replace(',', '_').replace('.', ',').replace('_', '.'), va='center', fontsize=4, color='black')
-            st.pyplot(fig_bar, use_container_width=False)
-            
-            # Adicionar análise automática
-            analise_cliente = gerar_analise_grafico(agrupado, 'cliente')
-            st.markdown(analise_cliente, unsafe_allow_html=True)
-            
-        # Gráfico de Pizza: Distribuição dos Custos Incorridos e Correlatos
-        with row2_col2:
-            st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Distribuição dos Custos</h3>", unsafe_allow_html=True)
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                datas_disponiveis_custos = ordenar_datas(data['DATA'].unique())
-                datas_selecionadas_custos = st.multiselect(
-                    "Data:", 
-                    datas_disponiveis_custos, 
-                    default=st.session_state.graph_filters['custos']['datas'],
-                    key="custos_data_select",
-                    on_change=update_graph_filter,
-                    args=('custos', 'datas', st.session_state.get('custos_data_select', []))
-                )
-                st.session_state.graph_filters['custos']['datas'] = datas_selecionadas_custos
-                
-            with col2:
-                fundacoes_disponiveis_custos = sorted(data['FUNDAÇÃO'].unique())
-                fundacoes_selecionadas_custos = st.multiselect(
-                    "Fundação:", 
-                    fundacoes_disponiveis_custos, 
-                    default=st.session_state.graph_filters['custos']['fundacoes'],
-                    key="custos_fundacao_select",
-                    on_change=update_graph_filter,
-                    args=('custos', 'fundacoes', st.session_state.get('custos_fundacao_select', []))
-                )
-                st.session_state.graph_filters['custos']['fundacoes'] = fundacoes_selecionadas_custos
-                
-            with col3:
-                clientes_disponiveis_custos = sorted(data['CLIENTE'].unique())
-                clientes_selecionados_custos = st.multiselect(
-                    "Cliente:", 
-                    clientes_disponiveis_custos, 
-                    default=st.session_state.graph_filters['custos']['clientes'],
-                    key="custos_cliente_select",
-                    on_change=update_graph_filter,
-                    args=('custos', 'clientes', st.session_state.get('custos_cliente_select', []))
-                )
-                st.session_state.graph_filters['custos']['clientes'] = clientes_selecionados_custos
-                
-            dados_local_custos = data.copy()
-            if st.session_state.graph_filters['custos']['datas']:
-                dados_local_custos = dados_local_custos[dados_local_custos['DATA'].isin(st.session_state.graph_filters['custos']['datas'])]
-            if st.session_state.graph_filters['custos']['fundacoes']:
-                dados_local_custos = dados_local_custos[dados_local_custos['FUNDAÇÃO'].isin(st.session_state.graph_filters['custos']['fundacoes'])]
-            if st.session_state.graph_filters['custos']['clientes']:
-                dados_local_custos = dados_local_custos[dados_local_custos['CLIENTE'].isin(st.session_state.graph_filters['custos']['clientes'])]
+                # --- Corrected Cost Calculation: Sum unique costs per project --- #
+                # Define project grouping keys (ensure these uniquely identify a project contract)
+                project_group_keys_costs = []
+                if 'QUANT.' in dados_local_custos.columns:
+                    project_group_keys_costs.append('QUANT.')
+                if 'CLIENTE' in dados_local_custos.columns:
+                    project_group_keys_costs.append('CLIENTE')
+                if 'PROJETO' in dados_local_custos.columns:
+                    project_group_keys_costs.append('PROJETO')
+                # Add VALOR DO CONTRATO as it seems crucial for unique project identification
+                if 'VALOR DO CONTRATO' in dados_local_custos.columns:
+                     project_group_keys_costs.append('VALOR DO CONTRATO')
 
-            # --- Corrected Cost Calculation: Sum unique costs per project --- #
-            # Define project grouping keys (ensure these uniquely identify a project contract)
-            project_group_keys_costs = []
-            if 'QUANT.' in dados_local_custos.columns:
-                project_group_keys_costs.append('QUANT.')
-            if 'CLIENTE' in dados_local_custos.columns:
-                project_group_keys_costs.append('CLIENTE')
-            if 'PROJETO' in dados_local_custos.columns:
-                project_group_keys_costs.append('PROJETO')
-            # Add VALOR DO CONTRATO as it seems crucial for unique project identification
-            if 'VALOR DO CONTRATO' in dados_local_custos.columns:
-                 project_group_keys_costs.append('VALOR DO CONTRATO')
+                total_custos_incurridos = 0
+                total_custos_correlatos = 0
 
-            total_custos_incurridos = 0
-            total_custos_correlatos = 0
+                if project_group_keys_costs and not dados_local_custos.empty:
+                     # Group by unique project and take the first cost value (assuming it's repeated)
+                     unique_project_costs = dados_local_custos.groupby(project_group_keys_costs, observed=True, dropna=False).agg(
+                         unique_incurridos=('CUSTOS INCORRIDOS', 'first'),
+                         unique_correlatos=('OUTROS CORRELATOS', 'first')
+                     ).reset_index()
 
-            if project_group_keys_costs and not dados_local_custos.empty:
-                 # Group by unique project and take the first cost value (assuming it's repeated)
-                 unique_project_costs = dados_local_custos.groupby(project_group_keys_costs, observed=True, dropna=False).agg(
-                     unique_incurridos=('CUSTOS INCORRIDOS', 'first'),
-                     unique_correlatos=('OUTROS CORRELATOS', 'first')
-                 ).reset_index()
+                     # Sum the unique costs
+                     total_custos_incurridos = unique_project_costs['unique_incurridos'].sum()
+                     total_custos_correlatos = unique_project_costs['unique_correlatos'].sum()
 
-                 # Sum the unique costs
-                 total_custos_incurridos = unique_project_costs['unique_incurridos'].sum()
-                 total_custos_correlatos = unique_project_costs['unique_correlatos'].sum()
-
-            custos_labels = ['Custos Incorridos', 'Custos Correlatos']
-            custos_values = [total_custos_incurridos, total_custos_correlatos]
-            color_map = {
-                'Custos Incorridos': '#a1c9f4',
-                'Custos Correlatos': '#a1f4c9'
-            }
-            custos_colors = [color_map[label] for label in custos_labels]
-            
-            def make_autopct(values):
-                def my_autopct(pct):
-                    total = sum(values)
-                    val = pct * total / 100.0
-                    return f'{pct:.1f}%\nR$ {val:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
-                return my_autopct
-            
-            fig_pizza, ax_pizza = plt.subplots(figsize=(2, 2.35))
-            wedges, texts, autotexts = ax_pizza.pie(
-                custos_values,
-                labels=custos_labels,
-                autopct=make_autopct(custos_values),
-                startangle=60,
-                colors=custos_colors,
-                textprops={'fontsize': 5}
-            )
-            plt.legend(custos_labels, fontsize=5, loc='center left', bbox_to_anchor=(1, 0.5))
-            ax_pizza.axis('equal')
-            st.pyplot(fig_pizza, use_container_width=False)
-            
-            # Adicionar análise automática
-            analise_custos = gerar_analise_grafico(custos_values, 'custos')
-            st.markdown(analise_custos, unsafe_allow_html=True)
-            
-        # Gráfico de barras - Distribuição de Valor a Receber por Fundação
-        with row1_col1:
-            st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Valor a Receber por Fundação</h3>", unsafe_allow_html=True)
-            
-            col_date, col_tipo = st.columns(2)
-            
-            with col_date:
-                datas_disponiveis_fundacao = ordenar_datas(data['DATA'].unique())
-                datas_selecionadas_fundacao = st.multiselect(
-                    "Data:", 
-                    datas_disponiveis_fundacao, 
-                    default=st.session_state.graph_filters['fundacao']['datas'],
-                    key="fundacao_data_select",
-                    on_change=update_graph_filter,
-                    args=('fundacao', 'datas', st.session_state.get('fundacao_data_select', []))
-                )
-                st.session_state.graph_filters['fundacao']['datas'] = datas_selecionadas_fundacao
+                custos_labels = ['Custos Incorridos', 'Custos Correlatos']
+                custos_values = [total_custos_incurridos, total_custos_correlatos]
+                color_map = {
+                    'Custos Incorridos': '#a1c9f4',
+                    'Custos Correlatos': '#a1f4c9'
+                }
+                custos_colors = [color_map[label] for label in custos_labels]
                 
-            with col_tipo:
-                tipos_disponiveis = sorted(data['TIPO'].unique())
-                tipos_selecionados_fund = st.multiselect(
-                    "Tipo de Serviço:", 
-                    tipos_disponiveis, 
-                    default=st.session_state.graph_filters['fundacao']['tipos'],
-                    key="fundacao_tipo_select",
-                    on_change=update_graph_filter,
-                    args=('fundacao', 'tipos', st.session_state.get('fundacao_tipo_select', []))
-                )
-                st.session_state.graph_filters['fundacao']['tipos'] = tipos_selecionados_fund
+                def make_autopct(values):
+                    def my_autopct(pct):
+                        total = sum(values)
+                        val = pct * total / 100.0
+                        return f'{pct:.1f}%\nR$ {val:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
+                    return my_autopct
                 
-            dados_local_fundacao = data.copy()
-            if st.session_state.graph_filters['fundacao']['datas']:
-                dados_local_fundacao = dados_local_fundacao[dados_local_fundacao['DATA'].isin(st.session_state.graph_filters['fundacao']['datas'])]
-            if st.session_state.graph_filters['fundacao']['tipos']:
-                dados_local_fundacao = dados_local_fundacao[dados_local_fundacao['TIPO'].isin(st.session_state.graph_filters['fundacao']['tipos'])]
-            
-            total_a_receber_por_fundacao = dados_local_fundacao.groupby('FUNDAÇÃO')['SALDO A RECEBER'].sum().reset_index()
-            total_a_receber_por_fundacao['SALDO A RECEBER'] = pd.to_numeric(total_a_receber_por_fundacao['SALDO A RECEBER'], errors='coerce')
-            total_a_receber_por_fundacao = total_a_receber_por_fundacao.sort_values(by='SALDO A RECEBER', ascending=False)
-            
-            fig_bar_fundacao, ax_bar_fundacao = plt.subplots(figsize=(3, 2))
-            ax_bar_fundacao.bar(
-                total_a_receber_por_fundacao['FUNDAÇÃO'],
-                total_a_receber_por_fundacao['SALDO A RECEBER'],
-                color=colors_palette[1]
-            )
-            ax_bar_fundacao.set_ylabel('Valor total a receber', fontsize=5)
-            ax_bar_fundacao.set_xlabel('Fundação', fontsize=5)
-            for i, v in enumerate(total_a_receber_por_fundacao['SALDO A RECEBER']):
-                num_val = float(v)
-                ax_bar_fundacao.text(i, num_val + 10000, f'R$ {num_val:,.0f}'.replace(',', '_').replace('.', ',').replace('_', '.'), 
+                fig_pizza, ax_pizza = plt.subplots(figsize=(2, 2.35))
+                wedges, texts, autotexts = ax_pizza.pie(
+                    custos_values,
+                    labels=custos_labels,
+                    autopct=make_autopct(custos_values),
+                    startangle=60,
+                    colors=custos_colors,
+                    textprops={'fontsize': 5}
+                )
+                plt.legend(custos_labels, fontsize=5, loc='center left', bbox_to_anchor=(1, 0.5))
+                ax_pizza.axis('equal')
+                st.pyplot(fig_pizza, use_container_width=False)
+                
+                # Adicionar análise automática
+                analise_custos = gerar_analise_grafico(custos_values, 'custos')
+                st.markdown(analise_custos, unsafe_allow_html=True)
+                
+            # Gráfico de barras - Distribuição de Valor a Receber por Fundação
+            with row1_col1:
+                st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Valor a Receber por Fundação</h3>", unsafe_allow_html=True)
+                
+                col_date, col_tipo = st.columns(2)
+                
+                with col_date:
+                    datas_disponiveis_fundacao = ordenar_datas(data['DATA'].unique())
+                    datas_selecionadas_fundacao = st.multiselect(
+                        "Data:", 
+                        datas_disponiveis_fundacao, 
+                        default=st.session_state.graph_filters['fundacao']['datas'],
+                        key="fundacao_data_select",
+                        on_change=update_graph_filter,
+                        args=('fundacao', 'datas', st.session_state.get('fundacao_data_select', []))
+                    )
+                    st.session_state.graph_filters['fundacao']['datas'] = datas_selecionadas_fundacao
+                    
+                with col_tipo:
+                    tipos_disponiveis = sorted(data['TIPO'].unique())
+                    tipos_selecionados_fund = st.multiselect(
+                        "Tipo de Serviço:", 
+                        tipos_disponiveis, 
+                        default=st.session_state.graph_filters['fundacao']['tipos'],
+                        key="fundacao_tipo_select",
+                        on_change=update_graph_filter,
+                        args=('fundacao', 'tipos', st.session_state.get('fundacao_tipo_select', []))
+                    )
+                    st.session_state.graph_filters['fundacao']['tipos'] = tipos_selecionados_fund
+                    
+                dados_local_fundacao = data.copy()
+                if st.session_state.graph_filters['fundacao']['datas']:
+                    dados_local_fundacao = dados_local_fundacao[dados_local_fundacao['DATA'].isin(st.session_state.graph_filters['fundacao']['datas'])]
+                if st.session_state.graph_filters['fundacao']['tipos']:
+                    dados_local_fundacao = dados_local_fundacao[dados_local_fundacao['TIPO'].isin(st.session_state.graph_filters['fundacao']['tipos'])]
+                
+                total_a_receber_por_fundacao = dados_local_fundacao.groupby('FUNDAÇÃO')['SALDO A RECEBER'].sum().reset_index()
+                total_a_receber_por_fundacao['SALDO A RECEBER'] = pd.to_numeric(total_a_receber_por_fundacao['SALDO A RECEBER'], errors='coerce')
+                total_a_receber_por_fundacao = total_a_receber_por_fundacao.sort_values(by='SALDO A RECEBER', ascending=False)
+                
+                fig_bar_fundacao, ax_bar_fundacao = plt.subplots(figsize=(3, 2))
+                ax_bar_fundacao.bar(
+                    total_a_receber_por_fundacao['FUNDAÇÃO'],
+                    total_a_receber_por_fundacao['SALDO A RECEBER'],
+                    color=colors_palette[1]
+                )
+                ax_bar_fundacao.set_ylabel('Valor total a receber', fontsize=5)
+                ax_bar_fundacao.set_xlabel('Fundação', fontsize=5)
+                for i, v in enumerate(total_a_receber_por_fundacao['SALDO A RECEBER']):
+                    num_val = float(v)
+                    ax_bar_fundacao.text(i, num_val + 10000, f'R$ {num_val:,.0f}'.replace(',', '_').replace('.', ',').replace('_', '.'), 
+                                        ha='center', va='bottom', fontsize=5)
+                plt.ticklabel_format(axis='y', style='plain')
+                plt.xticks(rotation=0, ha='center', fontsize=5)
+                plt.yticks(fontsize=5)
+                plt.tight_layout()
+                st.pyplot(fig_bar_fundacao, use_container_width=False)
+                
+                # Adicionar análise automática
+                analise_fundacao = gerar_analise_grafico(total_a_receber_por_fundacao, 'fundacao')
+                st.markdown(analise_fundacao, unsafe_allow_html=True)
+                
+            # Gráfico de barras - Distribuição de Valor a Receber por Tipo de Serviço
+            with row1_col2:
+                st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Valor a Receber por Tipo de Serviço</h3>", unsafe_allow_html=True)
+                
+                col_date, col_fundacao = st.columns(2)
+                
+                with col_date:
+                    datas_disponiveis_tipo = ordenar_datas(data['DATA'].unique())
+                    datas_selecionadas_tipo = st.multiselect(
+                        "Data:", 
+                        datas_disponiveis_tipo, 
+                        default=st.session_state.graph_filters['tipo']['datas'],
+                        key="tipo_data_select",
+                        on_change=update_graph_filter,
+                        args=('tipo', 'datas', st.session_state.get('tipo_data_select', []))
+                    )
+                    st.session_state.graph_filters['tipo']['datas'] = datas_selecionadas_tipo
+                    
+                with col_fundacao:
+                    fundacoes_disponiveis_tipo = sorted(data['FUNDAÇÃO'].unique())
+                    fundacoes_selecionadas_tipo = st.multiselect(
+                        "Fundação:", 
+                        fundacoes_disponiveis_tipo, 
+                        default=st.session_state.graph_filters['tipo']['fundacoes'],
+                        key="tipo_fundacao_select",
+                        on_change=update_graph_filter,
+                        args=('tipo', 'fundacoes', st.session_state.get('tipo_fundacao_select', []))
+                    )
+                    st.session_state.graph_filters['tipo']['fundacoes'] = fundacoes_selecionadas_tipo
+                    
+                dados_local_tipo = data.copy()
+                if st.session_state.graph_filters['tipo']['datas']:
+                    dados_local_tipo = dados_local_tipo[dados_local_tipo['DATA'].isin(st.session_state.graph_filters['tipo']['datas'])]
+                if st.session_state.graph_filters['tipo']['fundacoes']:
+                    dados_local_tipo = dados_local_tipo[dados_local_tipo['FUNDAÇÃO'].isin(st.session_state.graph_filters['tipo']['fundacoes'])]
+                
+                total_a_receber_por_tipo = dados_local_tipo.groupby('TIPO')['SALDO A RECEBER'].sum().reset_index()
+                total_a_receber_por_tipo['SALDO A RECEBER'] = pd.to_numeric(total_a_receber_por_tipo['SALDO A RECEBER'], errors='coerce')
+                total_a_receber_por_tipo = total_a_receber_por_tipo.sort_values(by='SALDO A RECEBER', ascending=False)
+                
+                fig_bar_tipo, ax_bar_tipo = plt.subplots(figsize=(3, 2))
+                ax_bar_tipo.bar(
+                    total_a_receber_por_tipo['TIPO'],
+                    total_a_receber_por_tipo['SALDO A RECEBER'],
+                    color=colors_palette[0]
+                )
+                ax_bar_tipo.set_ylabel('Valor total a receber', fontsize=5)
+                ax_bar_tipo.set_xlabel('Tipo de Serviço', fontsize=5)
+                for i, v in enumerate(total_a_receber_por_tipo['SALDO A RECEBER']):
+                    num_val = float(v)
+                    ax_bar_tipo.text(i, num_val + 10000, f'R$ {num_val:,.0f}'.replace(',', '_').replace('.', ',').replace('_', '.'), 
                                     ha='center', va='bottom', fontsize=5)
-            plt.ticklabel_format(axis='y', style='plain')
-            plt.xticks(rotation=0, ha='center', fontsize=5)
-            plt.yticks(fontsize=5)
-            plt.tight_layout()
-            st.pyplot(fig_bar_fundacao, use_container_width=False)
-            
-            # Adicionar análise automática
-            analise_fundacao = gerar_analise_grafico(total_a_receber_por_fundacao, 'fundacao')
-            st.markdown(analise_fundacao, unsafe_allow_html=True)
-            
-        # Gráfico de barras - Distribuição de Valor a Receber por Tipo de Serviço
-        with row1_col2:
-            st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Valor a Receber por Tipo de Serviço</h3>", unsafe_allow_html=True)
-            
-            col_date, col_fundacao = st.columns(2)
-            
-            with col_date:
-                datas_disponiveis_tipo = ordenar_datas(data['DATA'].unique())
-                datas_selecionadas_tipo = st.multiselect(
-                    "Data:", 
-                    datas_disponiveis_tipo, 
-                    default=st.session_state.graph_filters['tipo']['datas'],
-                    key="tipo_data_select",
-                    on_change=update_graph_filter,
-                    args=('tipo', 'datas', st.session_state.get('tipo_data_select', []))
-                )
-                st.session_state.graph_filters['tipo']['datas'] = datas_selecionadas_tipo
+                plt.ticklabel_format(axis='y', style='plain')
+                plt.xticks(rotation=0, ha='center', fontsize=5)
+                plt.yticks(fontsize=5)
+                plt.tight_layout()
+                st.pyplot(fig_bar_tipo, use_container_width=False)
                 
-            with col_fundacao:
-                fundacoes_disponiveis_tipo = sorted(data['FUNDAÇÃO'].unique())
-                fundacoes_selecionadas_tipo = st.multiselect(
-                    "Fundação:", 
-                    fundacoes_disponiveis_tipo, 
-                    default=st.session_state.graph_filters['tipo']['fundacoes'],
-                    key="tipo_fundacao_select",
-                    on_change=update_graph_filter,
-                    args=('tipo', 'fundacoes', st.session_state.get('tipo_fundacao_select', []))
-                )
-                st.session_state.graph_filters['tipo']['fundacoes'] = fundacoes_selecionadas_tipo
+                # Adicionar análise automática
+                analise_tipo = gerar_analise_grafico(total_a_receber_por_tipo, 'tipo')
+                st.markdown(analise_tipo, unsafe_allow_html=True)
                 
-            dados_local_tipo = data.copy()
-            if st.session_state.graph_filters['tipo']['datas']:
-                dados_local_tipo = dados_local_tipo[dados_local_tipo['DATA'].isin(st.session_state.graph_filters['tipo']['datas'])]
-            if st.session_state.graph_filters['tipo']['fundacoes']:
-                dados_local_tipo = dados_local_tipo[dados_local_tipo['FUNDAÇÃO'].isin(st.session_state.graph_filters['tipo']['fundacoes'])]
-            
-            total_a_receber_por_tipo = dados_local_tipo.groupby('TIPO')['SALDO A RECEBER'].sum().reset_index()
-            total_a_receber_por_tipo['SALDO A RECEBER'] = pd.to_numeric(total_a_receber_por_tipo['SALDO A RECEBER'], errors='coerce')
-            total_a_receber_por_tipo = total_a_receber_por_tipo.sort_values(by='SALDO A RECEBER', ascending=False)
-            
-            fig_bar_tipo, ax_bar_tipo = plt.subplots(figsize=(3, 2))
-            ax_bar_tipo.bar(
-                total_a_receber_por_tipo['TIPO'],
-                total_a_receber_por_tipo['SALDO A RECEBER'],
-                color=colors_palette[0]
-            )
-            ax_bar_tipo.set_ylabel('Valor total a receber', fontsize=5)
-            ax_bar_tipo.set_xlabel('Tipo de Serviço', fontsize=5)
-            for i, v in enumerate(total_a_receber_por_tipo['SALDO A RECEBER']):
-                num_val = float(v)
-                ax_bar_tipo.text(i, num_val + 10000, f'R$ {num_val:,.0f}'.replace(',', '_').replace('.', ',').replace('_', '.'), 
-                                ha='center', va='bottom', fontsize=5)
-            plt.ticklabel_format(axis='y', style='plain')
-            plt.xticks(rotation=0, ha='center', fontsize=5)
-            plt.yticks(fontsize=5)
-            plt.tight_layout()
-            st.pyplot(fig_bar_tipo, use_container_width=False)
-            
-            # Adicionar análise automática
-            analise_tipo = gerar_analise_grafico(total_a_receber_por_tipo, 'tipo')
-            st.markdown(analise_tipo, unsafe_allow_html=True)
-            
-        # Rodapé
-        st.markdown("---")
-        st.markdown("<div style='text-align: center;'>Dashboard Financeiro Versão 1.3 © 2025</div>", unsafe_allow_html=True)
+            # Rodapé
+            st.markdown("---")
+            st.markdown("<div style='text-align: center;'>Dashboard Financeiro Versão 1.3 © 2025</div>", unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error(f"Erro ao gerar a seção de Análise Gráfica: {e}")
+            st.warning("Verifique se os dados foram carregados corretamente e se as colunas necessárias existem.")
+            # Optionally show more details for debugging
+            if st.checkbox("Mostrar detalhes técnicos do erro gráfico"):
+                import traceback
+                st.code(traceback.format_exc())
 
 try:
     # Tente executar o dashboard
