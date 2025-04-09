@@ -2075,10 +2075,22 @@ if st.session_state["authentication_status"]:
                     # --- End Excel Buffer --- #
 
                     # Button to show the table
-                    show_atrasos_table = st.button('Mostrar Registros com Repasses em Atraso', key='btn_mostrar_atrasos')
+                    show_atrasos_button = st.button('Mostrar Registros com Repasses em Atraso', key='btn_mostrar_atrasos')
+
+                    # Store display state in session_state to prevent refreshes when other widgets are used
+                    if show_atrasos_button:
+                        st.session_state.show_atrasos_table = True
+
+                    # Check if 'show_atrasos_table' exists in session state
+                    if 'show_atrasos_table' not in st.session_state:
+                        st.session_state.show_atrasos_table = False
+
+                    # If "Limpar" button is pressed, reset this display too
+                    if clear_filters:
+                        st.session_state.show_atrasos_table = False
 
                     # Display table conditionally
-                    if show_atrasos_table:
+                    if st.session_state.show_atrasos_table:
                         st.markdown("<h3 style='font-size:140%;'>Planilha de Repasses em Atraso</h3>", unsafe_allow_html=True)
 
                         st.info(
