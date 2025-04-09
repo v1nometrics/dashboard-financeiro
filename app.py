@@ -1642,44 +1642,30 @@ if st.session_state["authentication_status"]:
 
         # --- Prepare DataFrame for DISPLAY ONLY (Applying the 'A definir' grouping) ---
         df_processed_for_display = pd.DataFrame() # Initialize empty
-        if st.session_state.meses:
-            if not df_exibir_final_contas.empty:
-                if 'PREVISÃO DE DATA DE RECEBIMENTO' in df_exibir_final_contas.columns and 'INTERNAL_PROJECT_ID' in df_exibir_final_contas.columns:
-                    # Split data
-                    df_com_data = df_exibir_final_contas[df_exibir_final_contas['PREVISÃO DE DATA DE RECEBIMENTO'] != 'A definir'].copy()
-                    df_a_definir = df_exibir_final_contas[df_exibir_final_contas['PREVISÃO DE DATA DE RECEBIMENTO'] == 'A definir'].copy()
+        if not df_exibir_final_contas.empty:
+            if 'PREVISÃO DE DATA DE RECEBIMENTO' in df_exibir_final_contas.columns and 'INTERNAL_PROJECT_ID' in df_exibir_final_contas.columns:
+                # Split data
+                df_com_data = df_exibir_final_contas[df_exibir_final_contas['PREVISÃO DE DATA DE RECEBIMENTO'] != 'A definir'].copy()
+                df_a_definir = df_exibir_final_contas[df_exibir_final_contas['PREVISÃO DE DATA DE RECEBIMENTO'] == 'A definir'].copy()
 
-                    # Group 'A definir' rows by project ID and take the first row
-                    if not df_a_definir.empty:
-                        df_a_definir_grouped = df_a_definir.groupby('INTERNAL_PROJECT_ID', observed=True, dropna=False).first().reset_index()
-                        # Recombine
-                        df_processed_for_display = pd.concat([df_com_data, df_a_definir_grouped], ignore_index=True)
-                    else:
-                        # If no 'A definir' rows, just use the df_com_data
-                        df_processed_for_display = df_com_data
-
-                    # Re-sort based on the original sorting logic if needed (e.g., by ID PROJETO_NUM)
-                    if 'ID PROJETO_NUM' in df_processed_for_display.columns:
-                         df_processed_for_display = df_processed_for_display.sort_values(by='ID PROJETO_NUM').reset_index(drop=True)
-                    else:
-                         # Fallback sort if ID PROJETO_NUM was lost or not generated
-                         df_processed_for_display = df_processed_for_display.sort_index()
+                # Group 'A definir' rows by project ID and take the first row
+                if not df_a_definir.empty:
+                    df_a_definir_grouped = df_a_definir.groupby('INTERNAL_PROJECT_ID', observed=True, dropna=False).first().reset_index()
+                    # Recombine
+                    df_processed_for_display = pd.concat([df_com_data, df_a_definir_grouped], ignore_index=True)
                 else:
-                     print("Warning: 'PREVISÃO DE DATA DE RECEBIMENTO' or 'INTERNAL_PROJECT_ID' missing. Displaying original filtered data.")
-                     df_processed_for_display = df_exibir_final_contas.copy() # Fallback to original if columns missing
-        else:
-            # Quando não há meses selecionados, utilize dados filtrados padrão
-            if not df_exibir_final_contas.empty:
-                df_processed_for_display = df_exibir_final_contas.copy()
+                    # If no 'A definir' rows, just use the df_com_data
+                    df_processed_for_display = df_com_data
+
+                # Re-sort based on the original sorting logic if needed (e.g., by ID PROJETO_NUM)
+                if 'ID PROJETO_NUM' in df_processed_for_display.columns:
+                     df_processed_for_display = df_processed_for_display.sort_values(by='ID PROJETO_NUM').reset_index(drop=True)
+                else:
+                     # Fallback sort if ID PROJETO_NUM was lost or not generated
+                     df_processed_for_display = df_processed_for_display.sort_index()
             else:
-                df_processed_for_display = filtered_data.copy()
-                
-            # Adicionar um ID interno para agrupamento se não existir
-            if 'INTERNAL_PROJECT_ID' not in df_processed_for_display.columns and not df_processed_for_display.empty:
-                if 'ID PROJETO' in df_processed_for_display.columns:
-                    df_processed_for_display['INTERNAL_PROJECT_ID'] = df_processed_for_display['ID PROJETO']
-                else:
-                    df_processed_for_display['INTERNAL_PROJECT_ID'] = range(len(df_processed_for_display))
+                 print("Warning: 'PREVISÃO DE DATA DE RECEBIMENTO' or 'INTERNAL_PROJECT_ID' missing. Displaying original filtered data.")
+                 df_processed_for_display = df_exibir_final_contas.copy() # Fallback to original if columns missing
         # --- End Preparation for Display ---
 
 
@@ -1744,6 +1730,34 @@ if st.session_state["authentication_status"]:
             }
             # Filter format_dict to only include columns present in df_display_contas
             valid_format_dict = {k: v for k, v in format_dict.items() if k in df_display_contas.columns}
+            # --- Update formatting dictionary based on new columns/order ---
+            format_dict = {
+                'PREVISÃO DE VALOR DE RECEBIMENTO': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.') if pd.notna(x) and isinstance(x, (int, float)) else "—",
+                'VALOR DO CONTRATO': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.') if pd.notna(x) and isinstance(x, (int, float)) else "—",
+                'REPASSE RECEBIDO': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.') if pd.notna(x) and isinstance(x, (int, float)) else "—",
+                'SALDO A RECEBER DO CONTRATO': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.') if pd.notna(x) and isinstance(x, (int, float)) else "—",
+                'SALDO A RECEBER': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.') if pd.notna(x) and isinstance(x, (int, float)) else "—",
+                'CUSTOS INCORRIDOS': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.') if pd.notna(x) and isinstance(x, (int, float)) else "—",
+                'OUTROS CORRELATOS': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.') if pd.notna(x) and isinstance(x, (int, float)) else "—",
+                'EMITIDO INCORRIDOS': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.') if pd.notna(x) and isinstance(x, (int, float)) else "—", # Renamed col
+                'EMITIDO CORRELATOS': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.') if pd.notna(x) and isinstance(x, (int, float)) else "—", # Renamed col
+                'SALDO A RECEBER PREVISTO ATÉ A DATA FILTRADA': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.') if pd.notna(x) and isinstance(x, (int, float)) else "—",
+                # Add formatting for date columns if needed, e.g., ensuring consistent display
+                'PREVISÃO DE DATA DE RECEBIMENTO': lambda x: str(x) if pd.notna(x) else "A definir",
+                'DATA DE RECEBIMENTO': lambda x: str(x) if pd.notna(x) else "—",
+                'PÁGINA': lambda x: str(x) if pd.notna(x) else "—",
+                'FUNDAÇÃO': lambda x: str(x) if pd.notna(x) else "—",
+                'CLIENTE': lambda x: str(x) if pd.notna(x) else "—",
+                'PROJETO': lambda x: str(x) if pd.notna(x) else "—",
+                'NOMENCLATURA DO PROJETO': lambda x: str(x) if pd.notna(x) else "—",
+                'TIPO': lambda x: str(x) if pd.notna(x) else "—",
+                'CONTRATO': lambda x: str(x) if pd.notna(x) else "—",
+                'Nº TED': lambda x: str(x) if pd.notna(x) else "—",
+                'SECRETARIA': lambda x: str(x) if pd.notna(x) else "—",
+                'ID PROJETO': lambda x: str(x) if pd.notna(x) else "—"
+            }
+            # Filter format_dict to only include columns present in df_display_contas
+            valid_format_dict = {k: v for k, v in format_dict.items() if k in df_display_contas.columns}
 
             # Get color map based on the IDs present in the processed display data
             unique_ids_display = df_display_contas['INTERNAL_PROJECT_ID'].unique()
@@ -1763,7 +1777,7 @@ if st.session_state["authentication_status"]:
                 .apply(highlight_projects_display, axis=1) # Apply color based on INTERNAL_PROJECT_ID column
                 .format(valid_format_dict, na_rep="—"), # Apply formatting
                 column_config={ # Hide the internal ID column from view
-                     "INTERNAL_PROJECT_ID": None
+                        "INTERNAL_PROJECT_ID": None
                 },
                 use_container_width=True,
                 hide_index=True # Hide index for cleaner display
@@ -1789,460 +1803,427 @@ if st.session_state["authentication_status"]:
             if st.button("Fechar Tabela", key="btn_fechar_tabela"):
                 st.session_state.show_table = False
                 st.rerun()  # Force rerun to hide the table
+                    
+            elif st.session_state.show_table:
+                st.warning("Nenhum dado encontrado para os filtros selecionados.")
                 
-        elif st.session_state.show_table:
-            st.warning("Nenhum dado encontrado para os filtros selecionados.")
-            
-            # Add a button to close the warning too
-            if st.button("Fechar", key="btn_fechar_aviso"):
-                st.session_state.show_table = False
-                st.rerun()  # Force rerun to hide the warning
+                # Add a button to close the warning too
+                if st.button("Fechar", key="btn_fechar_aviso"):
+                    st.session_state.show_table = False
+                    st.rerun()  # Force rerun to hide the warning
 
-    # --- End Planilha de Contas a Receber Section ---
+        # --- End Planilha de Contas a Receber Section ---
 
-    # Dashboard de Alerta para Saldos em Atraso
-    st.markdown("---")
-    st.subheader("Repasses em Atraso ⚠️")
-    
-    # Obter mês atual
-    mes_atual = datetime.datetime.now().strftime('%m/%Y')
-    mes_atual_dt = pd.to_datetime(mes_atual, format='%m/%Y')
-    
-    # Usar a mesma fonte de dados do desvio para garantir consistência
-    df_atrasos = df_desvio.copy()
-    
-    # Verificar quais linhas têm data de previsão anterior ao mês atual E não têm repasse recebido
-    # Verificar se as colunas necessárias existem e adicionar tratamento de erro
-    if 'PREVISÃO DE DATA DE RECEBIMENTO' not in df_atrasos.columns:
-        st.warning("Coluna 'PREVISÃO DE DATA DE RECEBIMENTO' não encontrada. Verifique a planilha de origem.")
-        df_atrasos['PREVISÃO DE DATA DE RECEBIMENTO'] = 'A definir'  # Valor padrão
+        # Dashboard de Alerta para Saldos em Atraso
+        st.markdown("---")
+        st.subheader("Repasses em Atraso ⚠️")
         
-    df_atrasos['DATA_PREVISTA_DT'] = pd.to_datetime(df_atrasos['PREVISÃO DE DATA DE RECEBIMENTO'], format='%m/%Y', errors='coerce')
-    
-    # Uma linha está atrasada se: 
-    # 1. A data prevista é anterior à data atual
-    # 2. Não há valor em "Repasse Recebido" (ou é muito baixo) naquela linha
-    # 3. A data prevista não é nula (não é "A definir")
-    df_atrasos['LINHA_ATRASADA'] = (
-        (df_atrasos['DATA_PREVISTA_DT'] < mes_atual_dt) & 
-        ((df_atrasos['REPASSE RECEBIDO'].isna()) | (df_atrasos['REPASSE RECEBIDO'] < 1.0)) &
-        (df_atrasos['DATA_PREVISTA_DT'].notna())
-    )
-    
-    # Filtrar apenas projetos com saldo a receber maior que zero
-    df_atrasos = df_atrasos[df_atrasos['SALDO A RECEBER'] > 0]
-    
-    # Calcular meses em atraso
-    df_atrasos['MESES_ATRASO'] = df_atrasos.apply(
-        lambda row: ((mes_atual_dt.year - row['DATA_PREVISTA_DT'].year) * 12 + 
-                    (mes_atual_dt.month - row['DATA_PREVISTA_DT'].month))
-        if pd.notna(row['DATA_PREVISTA_DT']) and row['LINHA_ATRASADA'] else 0, 
-        axis=1
-    )
-    
-    # Verificar se a coluna de previsão de valor existe
-    if 'PREVISÃO DE VALOR DE RECEBIMENTO' not in df_atrasos.columns:
-        st.warning("Coluna 'PREVISÃO DE VALOR DE RECEBIMENTO' não encontrada. Verifique a planilha de origem.")
-        df_atrasos['PREVISÃO DE VALOR DE RECEBIMENTO'] = df_atrasos['VALOR DO CONTRATO'] # Valor padrão
-    
-    # Calcular o saldo a receber atrasado proporcional para linhas atrasadas
-    df_atrasos['PERC_REPASSE_PREVISTO'] = df_atrasos.apply(
-        lambda row: row['PREVISÃO DE VALOR DE RECEBIMENTO'] / row['VALOR DO CONTRATO'] 
-        if pd.notna(row['PREVISÃO DE VALOR DE RECEBIMENTO']) and row['VALOR DO CONTRATO'] > 0 else 0,
-        axis=1
-    )
-    
-    # Calcular o saldo a receber atrasado como a proporção do saldo total
-    df_atrasos['SALDO_A_RECEBER_ATRASADO'] = df_atrasos.apply(
-        lambda row: row['SALDO A RECEBER'] * row['PERC_REPASSE_PREVISTO'] 
-        if row['LINHA_ATRASADA'] else 0,
-        axis=1
-    )
-    
-    # Identificar projetos que têm pelo menos uma linha atrasada
-    projetos_com_atraso = df_atrasos[df_atrasos['LINHA_ATRASADA']].groupby(['QUANT.', 'CLIENTE', 'PROJETO']).size().reset_index()
-    projetos_com_atraso.rename(columns={0: 'NUM_LINHAS_ATRASADAS'}, inplace=True)
-    
-    # Se há projetos com atraso, mostrar a tabela
-    if not projetos_com_atraso.empty:
-        # Vamos incluir TODAS as linhas dos projetos que têm pelo menos uma linha atrasada
-        projeto_ids_com_atraso = list(zip(
-            projetos_com_atraso['QUANT.'],
-            projetos_com_atraso['CLIENTE'],
-            projetos_com_atraso['PROJETO']
-        ))
-
-        linhas_para_mostrar = []
-        for projeto_id in projeto_ids_com_atraso:
-            quant, cliente, projeto = projeto_id
-            # Selecionar todas as linhas deste projeto
-            projeto_mask = (
-                (df_atrasos['QUANT.'] == quant) &
-                (df_atrasos['CLIENTE'] == cliente) &
-                (df_atrasos['PROJETO'] == projeto)
-            )
-            linhas_para_mostrar.append(df_atrasos[projeto_mask])
-
-        if linhas_para_mostrar:
-            # Consolidar todas as linhas em um único DataFrame para exibição
-            df_linhas_mostrar = pd.concat(linhas_para_mostrar, ignore_index=True)
-
-            # --- Calculate Metrics based on *Actually Overdue* Lines --- #
-            df_realmente_atrasado = df_atrasos[df_atrasos['LINHA_ATRASADA'] == True]
-
-            # Metric 1 & 2: Counts (no change)
-            total_projetos = len(projetos_com_atraso)
-            total_linhas_atrasadas = df_realmente_atrasado.shape[0]
-
-            # Metric 3: Sum of overdue 'PREVISÃO DE VALOR DE RECEBIMENTO'
-            total_repasses_atrasado_calc = df_realmente_atrasado['PREVISÃO DE VALOR DE RECEBIMENTO'].sum()
-
-            # Metric 4: Sum of expected emissions corresponding to overdue receipts
-            df_realmente_atrasado['PROP_ATRASO'] = df_realmente_atrasado.apply(
-                lambda row: row['PREVISÃO DE VALOR DE RECEBIMENTO'] / row['VALOR DO CONTRATO']
-                if row['VALOR DO CONTRATO'] and row['VALOR DO CONTRATO'] != 0 else 0,
-                axis=1
-            )
-            df_realmente_atrasado['CUSTO_TOTAL_LINHA'] = df_realmente_atrasado['CUSTOS INCORRIDOS'].fillna(0) + df_realmente_atrasado['OUTROS CORRELATOS'].fillna(0)
-            df_realmente_atrasado['EMISSAO_ESPERADA_ATRASADA'] = df_realmente_atrasado['CUSTO_TOTAL_LINHA'] * df_realmente_atrasado['PROP_ATRASO']
-
-            total_emissoes_atrasadas_calc = df_realmente_atrasado['EMISSAO_ESPERADA_ATRASADA'].sum()
-            # --- End Metric Calculation --- #
-
-            # Selecionar e renomear colunas para exibição (using df_linhas_mostrar)
-            colunas_exibir = {
-                'FUNDAÇÃO': 'FUNDAÇÃO',
-                'PÁGINA': 'PÁGINA',
-                'CLIENTE': 'CLIENTE',
-                'PROJETO': 'PROJETO',
-                'NOMENCLATURA DO PROJETO': 'NOMENCLATURA DO PROJETO',
-                'TIPO': 'TIPO',
-                'OBJETO': 'OBJETO',
-                'CONTRATO': 'CONTRATO',
-                'Nº TED': 'Nº TED',
-                'SECRETARIA': 'SECRETARIA',
-                'VALOR DO CONTRATO': 'VALOR DO CONTRATO',
-                'SALDO A RECEBER DO CONTRATO': 'REPASSE PENDENTE DO CONTRATO',
-                'SALDO_A_RECEBER_ATRASADO': 'SALDO A RECEBER ATRASADO',
-                'MESES_ATRASO': 'MESES EM ATRASO',
-                'PREVISÃO DE DATA DE RECEBIMENTO': 'PREVISÃO DE DATAS DE RECEBIMENTO',
-                'PREVISÃO DE VALOR DE RECEBIMENTO': 'PREVISÃO DE VALORES DE RECEBIMENTO'
-            }
+        # Obter mês atual
+        mes_atual = datetime.datetime.now().strftime('%m/%Y')
+        mes_atual_dt = pd.to_datetime(mes_atual, format='%m/%Y')
+        
+        # Usar a mesma fonte de dados do desvio para garantir consistência
+        df_atrasos = df_desvio.copy()
+        
+        # Verificar quais linhas têm data de previsão anterior ao mês atual E não têm repasse recebido
+        # Verificar se as colunas necessárias existem e adicionar tratamento de erro
+        if 'PREVISÃO DE DATA DE RECEBIMENTO' not in df_atrasos.columns:
+            st.warning("Coluna 'PREVISÃO DE DATA DE RECEBIMENTO' não encontrada. Verifique a planilha de origem.")
+            df_atrasos['PREVISÃO DE DATA DE RECEBIMENTO'] = 'A definir'  # Valor padrão
             
-            # Filtrar apenas as colunas que existem no DataFrame
-            colunas_disponiveis = [col for col in colunas_exibir.keys() if col in df_linhas_mostrar.columns]
-            df_exibir = df_linhas_mostrar[colunas_disponiveis].rename(
-                columns={col: colunas_exibir[col] for col in colunas_disponiveis}
-            )
-            
-            # Substituir valores None ou NaN por "-" em todas as colunas de texto
-            colunas_texto = ['NOMENCLATURA DO PROJETO', 'Nº TED', 'SECRETARIA', 'PREVISÃO DE DATAS DE RECEBIMENTO', 'DATA DE RECEBIMENTO']
-            for col in colunas_texto:
-                if col in df_exibir.columns:
-                    df_exibir[col] = df_exibir[col].fillna("—")
-                    # Converter valores vazios para "-"
-                    df_exibir[col] = df_exibir[col].replace(r'^\s*$', "—", regex=True)
-            
-            # Calcular métricas totais para exibição
-            total_projetos = len(projetos_com_atraso)
-            total_linhas_atrasadas = projetos_com_atraso['NUM_LINHAS_ATRASADAS'].sum()
-            total_saldo_atrasado = df_linhas_mostrar[df_linhas_mostrar['LINHA_ATRASADA']]['SALDO_A_RECEBER_ATRASADO'].sum()
-            
-            # Mostrar somente se houver saldo atrasado
-            if total_saldo_atrasado > 0:
-                # Exibir métricas
-                col1, col2, col3, col4 = st.columns(4) # Changed to 4 columns
-                with col1:
-                    st.metric(
-                        label="Projetos com atrasos",
-                        value=total_projetos
-                    )
-                with col2:
-                    st.metric(
-                        label="Linhas de repasse atrasadas",
-                        value=total_linhas_atrasadas
-                    )
-                with col3:
-                    st.metric(
-                        label="Valor total de repasses atrasados", # Renamed label
-                        value=f"R$ {total_repasses_atrasado_calc:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.') # Use new calculation
-                    )
-                with col4: # Added 4th column for the new metric
-                    st.metric(
-                        label="Valor total de emissões atrasadas", # New metric label
-                        value=f"R$ {total_emissoes_atrasadas_calc:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.') # Use new calculation
-                    )
+        df_atrasos['DATA_PREVISTA_DT'] = pd.to_datetime(df_atrasos['PREVISÃO DE DATA DE RECEBIMENTO'], format='%m/%Y', errors='coerce')
+        
+        # Uma linha está atrasada se: 
+        # 1. A data prevista é anterior à data atual
+        # 2. Não há valor em "Repasse Recebido" (ou é muito baixo) naquela linha
+        # 3. A data prevista não é nula (não é "A definir")
+        df_atrasos['LINHA_ATRASADA'] = (
+            (df_atrasos['DATA_PREVISTA_DT'] < mes_atual_dt) & 
+            ((df_atrasos['REPASSE RECEBIDO'].isna()) | (df_atrasos['REPASSE RECEBIDO'] < 1.0)) &
+            (df_atrasos['DATA_PREVISTA_DT'].notna())
+        )
+        
+        # Filtrar apenas projetos com saldo a receber maior que zero
+        df_atrasos = df_atrasos[df_atrasos['SALDO A RECEBER'] > 0]
+        
+        # Calcular meses em atraso
+        df_atrasos['MESES_ATRASO'] = df_atrasos.apply(
+            lambda row: ((mes_atual_dt.year - row['DATA_PREVISTA_DT'].year) * 12 + 
+                        (mes_atual_dt.month - row['DATA_PREVISTA_DT'].month))
+            if pd.notna(row['DATA_PREVISTA_DT']) and row['LINHA_ATRASADA'] else 0, 
+            axis=1
+        )
+        
+        # Verificar se a coluna de previsão de valor existe
+        if 'PREVISÃO DE VALOR DE RECEBIMENTO' not in df_atrasos.columns:
+            st.warning("Coluna 'PREVISÃO DE VALOR DE RECEBIMENTO' não encontrada. Verifique a planilha de origem.")
+            df_atrasos['PREVISÃO DE VALOR DE RECEBIMENTO'] = df_atrasos['VALOR DO CONTRATO'] # Valor padrão
+        
+        # Calcular o saldo a receber atrasado proporcional para linhas atrasadas
+        df_atrasos['PERC_REPASSE_PREVISTO'] = df_atrasos.apply(
+            lambda row: row['PREVISÃO DE VALOR DE RECEBIMENTO'] / row['VALOR DO CONTRATO'] 
+            if pd.notna(row['PREVISÃO DE VALOR DE RECEBIMENTO']) and row['VALOR DO CONTRATO'] > 0 else 0,
+            axis=1
+        )
+        
+        # Calcular o saldo a receber atrasado como a proporção do saldo total
+        df_atrasos['SALDO_A_RECEBER_ATRASADO'] = df_atrasos.apply(
+            lambda row: row['SALDO A RECEBER'] * row['PERC_REPASSE_PREVISTO'] 
+            if row['LINHA_ATRASADA'] else 0,
+            axis=1
+        )
+        
+        # Identificar projetos que têm pelo menos uma linha atrasada
+        projetos_com_atraso = df_atrasos[df_atrasos['LINHA_ATRASADA']].groupby(['QUANT.', 'CLIENTE', 'PROJETO']).size().reset_index()
+        projetos_com_atraso.rename(columns={0: 'NUM_LINHAS_ATRASADAS'}, inplace=True)
+        
+        # Se há projetos com atraso, mostrar a tabela
+        if not projetos_com_atraso.empty:
+            # Vamos incluir TODAS as linhas dos projetos que têm pelo menos uma linha atrasada
+            projeto_ids_com_atraso = list(zip(
+                projetos_com_atraso['QUANT.'],
+                projetos_com_atraso['CLIENTE'],
+                projetos_com_atraso['PROJETO']
+            ))
 
-                # --- Prepare Data for Atrasos Display and Export (using df_linhas_mostrar) --- #
-                # Ensure INTERNAL_PROJECT_ID exists for consistent coloring *before* renaming/selecting for display
-                df_linhas_mostrar = df_linhas_mostrar.reset_index(drop=True) # Ensure index is clean
-                if 'QUANT.' in df_linhas_mostrar.columns and 'CLIENTE' in df_linhas_mostrar.columns and 'PROJETO' in df_linhas_mostrar.columns:
-                     df_linhas_mostrar['INTERNAL_PROJECT_ID'] = df_linhas_mostrar.apply(
-                         lambda row: f"{row['QUANT.']}_{row['CLIENTE']}_{row['PROJETO']}", axis=1
-                     )
-                elif 'CLIENTE' in df_linhas_mostrar.columns and 'PROJETO' in df_linhas_mostrar.columns:
-                     # Fallback if QUANT. is missing
-                     df_linhas_mostrar['INTERNAL_PROJECT_ID'] = df_linhas_mostrar.apply(
-                         lambda row: f"{row['CLIENTE']}_{row['PROJETO']}", axis=1
-                     )
-                else:
-                    # If critical grouping columns are missing, create a dummy ID
-                    print("Warning: Critical columns (CLIENTE, PROJETO) missing for INTERNAL_PROJECT_ID generation (Atrasos).")
-                    df_linhas_mostrar['INTERNAL_PROJECT_ID'] = df_linhas_mostrar.index.astype(str)
+            linhas_para_mostrar = []
+            for projeto_id in projeto_ids_com_atraso:
+                quant, cliente, projeto = projeto_id
+                # Selecionar todas as linhas deste projeto
+                projeto_mask = (
+                    (df_atrasos['QUANT.'] == quant) &
+                    (df_atrasos['CLIENTE'] == cliente) &
+                    (df_atrasos['PROJETO'] == projeto)
+                )
+                linhas_para_mostrar.append(df_atrasos[projeto_mask])
 
+            if linhas_para_mostrar:
+                # Consolidar todas as linhas em um único DataFrame para exibição
+                df_linhas_mostrar = pd.concat(linhas_para_mostrar, ignore_index=True)
 
-                # Prepare df_exibir for display (selecting and renaming columns)
+                # --- Calculate Metrics based on *Actually Overdue* Lines --- #
+                df_realmente_atrasado = df_atrasos[df_atrasos['LINHA_ATRASADA'] == True]
+
+                # Metric 1 & 2: Counts (no change)
+                total_projetos = len(projetos_com_atraso)
+                total_linhas_atrasadas = df_realmente_atrasado.shape[0]
+
+                # Metric 3: Sum of overdue 'PREVISÃO DE VALOR DE RECEBIMENTO'
+                total_repasses_atrasado_calc = df_realmente_atrasado['PREVISÃO DE VALOR DE RECEBIMENTO'].sum()
+
+                # Metric 4: Sum of expected emissions corresponding to overdue receipts
+                df_realmente_atrasado['PROP_ATRASO'] = df_realmente_atrasado.apply(
+                    lambda row: row['PREVISÃO DE VALOR DE RECEBIMENTO'] / row['VALOR DO CONTRATO']
+                    if row['VALOR DO CONTRATO'] and row['VALOR DO CONTRATO'] != 0 else 0,
+                    axis=1
+                )
+                df_realmente_atrasado['CUSTO_TOTAL_LINHA'] = df_realmente_atrasado['CUSTOS INCORRIDOS'].fillna(0) + df_realmente_atrasado['OUTROS CORRELATOS'].fillna(0)
+                df_realmente_atrasado['EMISSAO_ESPERADA_ATRASADA'] = df_realmente_atrasado['CUSTO_TOTAL_LINHA'] * df_realmente_atrasado['PROP_ATRASO']
+
+                total_emissoes_atrasadas_calc = df_realmente_atrasado['EMISSAO_ESPERADA_ATRASADA'].sum()
+                # --- End Metric Calculation --- #
+
+                # Selecionar e renomear colunas para exibição (using df_linhas_mostrar)
+                colunas_exibir = {
+                    'FUNDAÇÃO': 'FUNDAÇÃO',
+                    'PÁGINA': 'PÁGINA',
+                    'CLIENTE': 'CLIENTE',
+                    'PROJETO': 'PROJETO',
+                    'NOMENCLATURA DO PROJETO': 'NOMENCLATURA DO PROJETO',
+                    'TIPO': 'TIPO',
+                    'OBJETO': 'OBJETO',
+                    'CONTRATO': 'CONTRATO',
+                    'Nº TED': 'Nº TED',
+                    'SECRETARIA': 'SECRETARIA',
+                    'VALOR DO CONTRATO': 'VALOR DO CONTRATO',
+                    'SALDO A RECEBER DO CONTRATO': 'REPASSE PENDENTE DO CONTRATO',
+                    'SALDO_A_RECEBER_ATRASADO': 'SALDO A RECEBER ATRASADO',
+                    'MESES_ATRASO': 'MESES EM ATRASO',
+                    'PREVISÃO DE DATA DE RECEBIMENTO': 'PREVISÃO DE DATAS DE RECEBIMENTO',
+                    'PREVISÃO DE VALOR DE RECEBIMENTO': 'PREVISÃO DE VALORES DE RECEBIMENTO'
+                }
+                
+                # Filtrar apenas as colunas que existem no DataFrame
                 colunas_disponiveis = [col for col in colunas_exibir.keys() if col in df_linhas_mostrar.columns]
-                df_exibir = df_linhas_mostrar[colunas_disponiveis + ['INTERNAL_PROJECT_ID']].rename( # Keep ID temporarily
+                df_exibir = df_linhas_mostrar[colunas_disponiveis].rename(
                     columns={col: colunas_exibir[col] for col in colunas_disponiveis}
                 )
-
-                # Add user-friendly ID PROJETO for display
-                if 'VALOR DO CONTRATO' in df_exibir.columns and 'CLIENTE' in df_exibir.columns and 'PROJETO' in df_exibir.columns:
-                    df_exibir['ID PROJETO'] = df_exibir.groupby(['CLIENTE', 'PROJETO', 'VALOR DO CONTRATO']).ngroup() + 1
-                    df_exibir['ID PROJETO'] = df_exibir['ID PROJETO'].apply(lambda x: f"Projeto #{x}")
-                else: # Fallback if grouping columns aren't available after rename (should not happen ideally)
-                     df_exibir['ID PROJETO'] = "Projeto #N/A"
-
-
-                # Sort for display
-                sort_columns_display = ['CLIENTE', 'PROJETO']
-                if 'QUANT.' in df_exibir.columns: # Check original column name before rename
-                    sort_columns_display.append('QUANT.')
-                if 'MESES EM ATRASO' in df_exibir.columns:
-                    sort_columns_display.append('MESES EM ATRASO')
-
-                sort_ascending_display = [True, True]
-                if 'QUANT.' in df_exibir.columns:
-                    sort_ascending_display.append(True)
-                if 'MESES EM ATRASO' in df_exibir.columns:
-                    sort_ascending_display.append(False)
-
-                # Check if sort columns exist in df_exibir *after* renaming
-                valid_sort_columns = [col for col in sort_columns_display if col in df_exibir.columns]
-                valid_sort_ascending = [asc for col, asc in zip(sort_columns_display, sort_ascending_display) if col in df_exibir.columns]
-
-                if valid_sort_columns:
-                    df_exibir = df_exibir.sort_values(by=valid_sort_columns, ascending=valid_sort_ascending)
-
-
-                # Reorder columns for display
-                colunas_ordem_display = ['ID PROJETO', 'PÁGINA'] + [col for col in df_exibir.columns if col not in ['ID PROJETO', 'PÁGINA', 'INTERNAL_PROJECT_ID']]
-                df_exibir = df_exibir[colunas_ordem_display + ['INTERNAL_PROJECT_ID']] # Keep ID temporarily
-                df_exibir = df_exibir.reset_index(drop=True)
-
-
-                # --- Generate Excel Buffer for Atrasos (Moved Up & Corrected) --- #
-                # Use the df_exibir which has the correct columns and the INTERNAL_PROJECT_ID
-                df_export_atrasos = df_exibir.copy()
-
-                # Create hex color mapping using the consistent INTERNAL_PROJECT_ID
-                unique_projects_hex = df_export_atrasos['INTERNAL_PROJECT_ID'].unique()
-                hex_color_map_atrasos = get_global_color_mapping(unique_projects_hex, style='hex')
-
-                # Define column formatting based on the *renamed* columns in df_export_atrasos
-                currency_cols_atrasos = ['VALOR DO CONTRATO', 'REPASSE PENDENTE DO CONTRATO', 'SALDO A RECEBER ATRASADO', 'PREVISÃO DE VALORES DE RECEBIMENTO']
-                numeric_cols_atrasos = ['MESES EM ATRASO']
-                percentage_cols_atrasos = []
-
-
-                excel_buffer_atrasos = create_styled_excel(
-                    df_export_atrasos, # Pass the df with renamed cols + internal ID
-                    project_id_col='INTERNAL_PROJECT_ID', # Specify the internal ID for coloring
-                    color_mapping=hex_color_map_atrasos,
-                    numeric_cols=numeric_cols_atrasos,
-                    currency_cols=currency_cols_atrasos,
-                    percentage_cols=percentage_cols_atrasos,
-                    filename="repasses_em_atraso.xlsx",
-                    drop_id_col_on_export=True # Ensure the internal ID is dropped from final Excel
-                )
-
-                st.download_button(
-                    label="📥 Download Repasses em Atraso (Excel)",
-                    data=excel_buffer_atrasos,
-                    file_name=f"repasses_em_atraso_{datetime.datetime.now().strftime('%d-%m-%Y')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key='download_atrasos'
-                )
-                # --- End Excel Buffer --- #
-
-                # Button to show the table
-                show_atrasos_table = st.button('Mostrar Registros com Repasses em Atraso', key='btn_mostrar_atrasos')
-
-                # Display table conditionally
-                if show_atrasos_table:
-                    st.markdown("<h3 style='font-size:140%;'>Planilha de Repasses em Atraso</h3>", unsafe_allow_html=True)
-
-                    st.info(
-                        """
-                        *   Identifica projetos com **pelo menos uma parcela de repasse em atraso** (data de previsão anterior ao mês atual e sem registro de recebimento).
-                        *   **Todas as parcelas** do projeto são exibidas para contexto, mesmo as não atrasadas.
-                        *   O 'Saldo a Receber Atrasado' é calculado **proporcionalmente** apenas para as parcelas em atraso.
-                        *   Projetos são agrupados visualmente por cor e **ID PROJETO**.
-                        """
-                    )
-
-                    # Generate RGBA color map for display styling
-                    # Use the same INTERNAL_PROJECT_ID from df_exibir
-                    unique_projects_rgba = df_exibir['INTERNAL_PROJECT_ID'].unique()
-                    color_map_rgba = get_global_color_mapping(unique_projects_rgba, style='rgba')
-
-                    # Create index-to-color mapping for the display DataFrame
-                    index_to_color = {}
-                    for idx, row in df_exibir.iterrows():
-                         # Use get with a default for safety
-                         index_to_color[idx] = color_map_rgba.get(row['INTERNAL_PROJECT_ID'], 'rgba(255, 255, 255, 0)')
-
-
-                    # Define highlight function using the index mapping
-                    def highlight_projects_atraso(row):
-                        idx = row.name
-                        cor_rgba = index_to_color.get(idx, 'rgba(255, 255, 255, 0)')
-                        return [f'background-color: {cor_rgba}'] * len(row)
-
-
-                    # Clean up display dataframe (remove internal ID, handle NaNs)
-                    df_display = replace_none_with_dash(df_exibir.drop(columns=['INTERNAL_PROJECT_ID']))
-
-                    # --- Re-add definitions for formatting functions --- #
-                    def format_valor_atraso(x):
-                        if isinstance(x, (int, float)) and x > 0:
-                            return f"R$ {x:_.2f}".replace('.', ',').replace('_', '.')
-                        else:
-                            return "—"
-
-                    def format_meses_atraso(x):
-                        if isinstance(x, (int, float)) and x > 0:
-                            return f"{int(x)} {'mês' if int(x) == 1 else 'meses'}"
-                        else:
-                            return "—"
-                    # --- End re-added definitions --- #
-
-                    st.dataframe(
-                        df_display.style
-                        .apply(highlight_projects_atraso, axis=1) # Use the correct highlight function
-                        .format({
-                            'VALOR DO CONTRATO': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.'),
-                            'REPASSE PENDENTE DO CONTRATO': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.'),
-                            'SALDO A RECEBER ATRASADO': format_valor_atraso,
-                            'MESES EM ATRASO': format_meses_atraso,
-                            'PREVISÃO DE VALORES DE RECEBIMENTO': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.') if pd.notna(x) else "—"
-                        }),
-                        use_container_width=True
-                    )
-
-                    # --- Removed Download Button Logic from here --- #
-
-            else:
-                st.success("Não há projetos com saldo a receber em atraso!")
-    else:
-        st.success("Não há projetos com linhas de repasse em atraso!")
-
-    # Dashboard de Desvio de Proporção
-    st.markdown("---")
-    st.subheader("Desvio na Proporção dos Repasses 🔍")
-
-    try:
-        # Calcular métricas de desvio
-        tolerance = 20.0
-        
-        # Verificar se df_desvio possui as colunas necessárias
-        colunas_necessarias_desvio = ['REPASSE RECEBIDO', 'VALOR DO CONTRATO', 'CUSTOS INCORRIDOS', 'VALOR', 'OUTROS CORRELATOS', 'VALOR2']
-        colunas_faltantes = [col for col in colunas_necessarias_desvio if col not in df_desvio.columns]
-        
-        if colunas_faltantes:
-            st.warning(f"Atenção: As seguintes colunas estão faltando nos dados: {', '.join(colunas_faltantes)}")
-            st.info("Isso pode afetar os cálculos de desvio de proporção. Verifique a planilha de origem.")
-            # Adicionar colunas faltantes com valores zerados para evitar erros
-            for col in colunas_faltantes:
-                df_desvio[col] = 0
                 
-        # Continuar com os cálculos de desvio
-        df_desvio['PROP REPASSE'] = df_desvio.apply(
-            lambda row: row['REPASSE RECEBIDO'] / row['VALOR DO CONTRATO']
-            if row['REPASSE RECEBIDO'] and row['VALOR DO CONTRATO'] != 0 else np.nan, axis=1)
+                # Substituir valores None ou NaN por "-" em todas as colunas de texto
+                colunas_texto = ['NOMENCLATURA DO PROJETO', 'Nº TED', 'SECRETARIA', 'PREVISÃO DE DATAS DE RECEBIMENTO', 'DATA DE RECEBIMENTO']
+                for col in colunas_texto:
+                    if col in df_exibir.columns:
+                        df_exibir[col] = df_exibir[col].fillna("—")
+                        # Converter valores vazios para "-"
+                        df_exibir[col] = df_exibir[col].replace(r'^\s*$', "—", regex=True)
+                
+                # Calcular métricas totais para exibição
+                total_projetos = len(projetos_com_atraso)
+                total_linhas_atrasadas = projetos_com_atraso['NUM_LINHAS_ATRASADAS'].sum()
+                total_saldo_atrasado = df_linhas_mostrar[df_linhas_mostrar['LINHA_ATRASADA']]['SALDO_A_RECEBER_ATRASADO'].sum()
+                
+                # Mostrar somente se houver saldo atrasado
+                if total_saldo_atrasado > 0:
+                    # Exibir métricas
+                    col1, col2, col3, col4 = st.columns(4) # Changed to 4 columns
+                    with col1:
+                        st.metric(
+                            label="Projetos com atrasos",
+                            value=total_projetos
+                        )
+                    with col2:
+                        st.metric(
+                            label="Linhas de repasse atrasadas",
+                            value=total_linhas_atrasadas
+                        )
+                    with col3:
+                        st.metric(
+                            label="Valor total de repasses atrasados", # Renamed label
+                            value=f"R$ {total_repasses_atrasado_calc:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.') # Use new calculation
+                        )
+                    with col4: # Added 4th column for the new metric
+                        st.metric(
+                            label="Valor total de emissões atrasadas", # New metric label
+                            value=f"R$ {total_emissoes_atrasadas_calc:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.') # Use new calculation
+                        )
 
-        df_desvio['EXPECTED VALOR'] = df_desvio.apply(
-            lambda row: row['CUSTOS INCORRIDOS'] * row['PROP REPASSE']
-            if pd.notna(row['PROP REPASSE']) and row['CUSTOS INCORRIDOS'] > 0 else np.nan, axis=1)
+                    # --- Prepare Data for Atrasos Display and Export (using df_linhas_mostrar) --- #
+                    # Ensure INTERNAL_PROJECT_ID exists for consistent coloring *before* renaming/selecting for display
+                    df_linhas_mostrar = df_linhas_mostrar.reset_index(drop=True) # Ensure index is clean
+                    if 'QUANT.' in df_linhas_mostrar.columns and 'CLIENTE' in df_linhas_mostrar.columns and 'PROJETO' in df_linhas_mostrar.columns:
+                         df_linhas_mostrar['INTERNAL_PROJECT_ID'] = df_linhas_mostrar.apply(
+                             lambda row: f"{row['QUANT.']}_{row['CLIENTE']}_{row['PROJETO']}", axis=1
+                         )
+                    elif 'CLIENTE' in df_linhas_mostrar.columns and 'PROJETO' in df_linhas_mostrar.columns:
+                         # Fallback if QUANT. is missing
+                         df_linhas_mostrar['INTERNAL_PROJECT_ID'] = df_linhas_mostrar.apply(
+                             lambda row: f"{row['CLIENTE']}_{row['PROJETO']}", axis=1
+                         )
+                    else:
+                        # If critical grouping columns are missing, create a dummy ID
+                        print("Warning: Critical columns (CLIENTE, PROJETO) missing for INTERNAL_PROJECT_ID generation (Atrasos).")
+                        df_linhas_mostrar['INTERNAL_PROJECT_ID'] = df_linhas_mostrar.index.astype(str)
 
-        df_desvio['EXPECTED VALOR2'] = df_desvio.apply(
-            lambda row: row['OUTROS CORRELATOS'] * row['PROP REPASSE']
-            if pd.notna(row['PROP REPASSE']) and row['OUTROS CORRELATOS'] > 0 else np.nan, axis=1)
 
-        df_desvio['EXPECTED VALOR RND'] = df_desvio['EXPECTED VALOR'].round(2)
-        df_desvio['EXPECTED VALOR2 RND'] = df_desvio['EXPECTED VALOR2'].round(2)
-        df_desvio['VALOR RND'] = df_desvio['VALOR'].round(2)
-        df_desvio['VALOR2 RND'] = df_desvio['VALOR2'].round(2)
+                    # Prepare df_exibir for display (selecting and renaming columns)
+                    colunas_disponiveis = [col for col in colunas_exibir.keys() if col in df_linhas_mostrar.columns]
+                    df_exibir = df_linhas_mostrar[colunas_disponiveis + ['INTERNAL_PROJECT_ID']].rename( # Keep ID temporarily
+                        columns={col: colunas_exibir[col] for col in colunas_disponiveis}
+                    )
 
-        df_desvio['DESVIO VALOR'] = df_desvio.apply(
-            lambda row: True if (pd.notna(row['EXPECTED VALOR RND']) and 
-                              (row['EXPECTED VALOR RND'] - row['VALOR RND'] > tolerance))
-                          else False, axis=1)
+                    # Add user-friendly ID PROJETO for display
+                    if 'VALOR DO CONTRATO' in df_exibir.columns and 'CLIENTE' in df_exibir.columns and 'PROJETO' in df_exibir.columns:
+                        df_exibir['ID PROJETO'] = df_exibir.groupby(['CLIENTE', 'PROJETO', 'VALOR DO CONTRATO']).ngroup() + 1
+                        df_exibir['ID PROJETO'] = df_exibir['ID PROJETO'].apply(lambda x: f"Projeto #{x}")
+                    else: # Fallback if grouping columns aren't available after rename (should not happen ideally)
+                         df_exibir['ID PROJETO'] = "Projeto #N/A"
 
-        df_desvio['DESVIO VALOR2'] = df_desvio.apply(
-            lambda row: True if (pd.notna(row['EXPECTED VALOR2 RND']) and 
-                              (row['EXPECTED VALOR2 RND'] - row['VALOR2 RND'] > tolerance))
-                          else False, axis=1)
 
-        df_desvio['DESVIO PROPORCAO'] = df_desvio['DESVIO VALOR'] | df_desvio['DESVIO VALOR2']
+                    # Sort for display
+                    sort_columns_display = ['CLIENTE', 'PROJETO']
+                    if 'QUANT.' in df_exibir.columns: # Check original column name before rename
+                        sort_columns_display.append('QUANT.')
+                    if 'MESES EM ATRASO' in df_exibir.columns:
+                        sort_columns_display.append('MESES EM ATRASO')
 
-        # Calcular o desvio em reais somando as diferenças dos dois tipos
-        df_desvio['DESVIO VALOR REAIS'] = df_desvio.apply(
-            lambda row: (row['EXPECTED VALOR RND'] - row['VALOR RND']) 
-            if pd.notna(row['EXPECTED VALOR RND']) and pd.notna(row['VALOR RND']) else 0, axis=1
-        )
+                    sort_ascending_display = [True, True]
+                    if 'QUANT.' in df_exibir.columns:
+                        sort_ascending_display.append(True)
+                    if 'MESES EM ATRASO' in df_exibir.columns:
+                        sort_ascending_display.append(False)
 
-        df_desvio['DESVIO VALOR2 REAIS'] = df_desvio.apply(
-            lambda row: (row['EXPECTED VALOR2 RND'] - row['VALOR2 RND']) 
-            if pd.notna(row['EXPECTED VALOR2 RND']) and pd.notna(row['VALOR2 RND']) else 0, axis=1
-        )
+                    # Check if sort columns exist in df_exibir *after* renaming
+                    valid_sort_columns = [col for col in sort_columns_display if col in df_exibir.columns]
+                    valid_sort_ascending = [asc for col, asc in zip(sort_columns_display, sort_ascending_display) if col in df_exibir.columns]
 
-        # Somar os dois tipos de desvio para obter o desvio total em reais
-        df_desvio['DESVIO EM REAIS'] = df_desvio['DESVIO VALOR REAIS'] + df_desvio['DESVIO VALOR2 REAIS']
+                    if valid_sort_columns:
+                        df_exibir = df_exibir.sort_values(by=valid_sort_columns, ascending=valid_sort_ascending)
 
-        # Garantir que registros com valor total do desvio igual a zero reais não entrem no modelo
-        df_desvio.loc[df_desvio['DESVIO EM REAIS'] <= 0, 'DESVIO PROPORCAO'] = False
 
-        # Nova lógica: verificar desvios por bloco de projeto
-        # Este cálculo corrige casos onde múltiplas linhas do mesmo projeto podem parecer em desvio
-        # individualmente, mas quando analisadas em conjunto (como um bloco) estão corretas.
-        # Exemplo: Um projeto com dois repasses (33% e 34%) pode ter múltiplos pagamentos distribuídos
-        # que não correspondem linha a linha, mas que no total representam a proporção correta.
+                    # Reorder columns for display
+                    colunas_ordem_display = ['ID PROJETO', 'PÁGINA'] + [col for col in df_exibir.columns if col not in ['ID PROJETO', 'PÁGINA', 'INTERNAL_PROJECT_ID']]
+                    df_exibir = df_exibir[colunas_ordem_display + ['INTERNAL_PROJECT_ID']] # Keep ID temporarily
+                    df_exibir = df_exibir.reset_index(drop=True)
 
-        # Agrupar por projeto para somar valores de múltiplas linhas do mesmo projeto
-        group_cols = []
-        if 'QUANT.' in df_desvio.columns:
-            group_cols.append('QUANT.')
-        if 'CLIENTE' in df_desvio.columns:
-            group_cols.append('CLIENTE')
+
+                    # --- Generate Excel Buffer for Atrasos (Moved Up & Corrected) --- #
+                    # Use the df_exibir which has the correct columns and the INTERNAL_PROJECT_ID
+                    df_export_atrasos = df_exibir.copy()
+
+                    # Create hex color mapping using the consistent INTERNAL_PROJECT_ID
+                    unique_projects_hex = df_export_atrasos['INTERNAL_PROJECT_ID'].unique()
+                    hex_color_map_atrasos = get_global_color_mapping(unique_projects_hex, style='hex')
+
+                    # Define column formatting based on the *renamed* columns in df_export_atrasos
+                    currency_cols_atrasos = ['VALOR DO CONTRATO', 'REPASSE PENDENTE DO CONTRATO', 'SALDO A RECEBER ATRASADO', 'PREVISÃO DE VALORES DE RECEBIMENTO']
+                    numeric_cols_atrasos = ['MESES EM ATRASO']
+                    percentage_cols_atrasos = []
+
+
+                    excel_buffer_atrasos = create_styled_excel(
+                        df_export_atrasos, # Pass the df with renamed cols + internal ID
+                        project_id_col='INTERNAL_PROJECT_ID', # Specify the internal ID for coloring
+                        color_mapping=hex_color_map_atrasos,
+                        numeric_cols=numeric_cols_atrasos,
+                        currency_cols=currency_cols_atrasos,
+                        percentage_cols=percentage_cols_atrasos,
+                        filename="repasses_em_atraso.xlsx",
+                        drop_id_col_on_export=True # Ensure the internal ID is dropped from final Excel
+                    )
+
+                    st.download_button(
+                        label="📥 Download Repasses em Atraso (Excel)",
+                        data=excel_buffer_atrasos,
+                        file_name=f"repasses_em_atraso_{datetime.datetime.now().strftime('%d-%m-%Y')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key='download_atrasos'
+                    )
+                    # --- End Excel Buffer --- #
+
+                    # Button to show the table
+                    show_atrasos_table = st.button('Mostrar Registros com Repasses em Atraso', key='btn_mostrar_atrasos')
+
+                    # Display table conditionally
+                    if show_atrasos_table:
+                        st.markdown("<h3 style='font-size:140%;'>Planilha de Repasses em Atraso</h3>", unsafe_allow_html=True)
+
+                        st.info(
+                            """
+                            *   Identifica projetos com **pelo menos uma parcela de repasse em atraso** (data de previsão anterior ao mês atual e sem registro de recebimento).
+                            *   **Todas as parcelas** do projeto são exibidas para contexto, mesmo as não atrasadas.
+                            *   O 'Saldo a Receber Atrasado' é calculado **proporcionalmente** apenas para as parcelas em atraso.
+                            *   Projetos são agrupados visualmente por cor e **ID PROJETO**.
+                            """
+                        )
+
+                        # Generate RGBA color map for display styling
+                        # Use the same INTERNAL_PROJECT_ID from df_exibir
+                        unique_projects_rgba = df_exibir['INTERNAL_PROJECT_ID'].unique()
+                        color_map_rgba = get_global_color_mapping(unique_projects_rgba, style='rgba')
+
+                        # Create index-to-color mapping for the display DataFrame
+                        index_to_color = {}
+                        for idx, row in df_exibir.iterrows():
+                             # Use get with a default for safety
+                             index_to_color[idx] = color_map_rgba.get(row['INTERNAL_PROJECT_ID'], 'rgba(255, 255, 255, 0)')
+
+
+                        # Define highlight function using the index mapping
+                        def highlight_projects_atraso(row):
+                            idx = row.name
+                            cor_rgba = index_to_color.get(idx, 'rgba(255, 255, 255, 0)')
+                            return [f'background-color: {cor_rgba}'] * len(row)
+
+
+                        # Clean up display dataframe (remove internal ID, handle NaNs)
+                        df_display = replace_none_with_dash(df_exibir.drop(columns=['INTERNAL_PROJECT_ID']))
+
+                        # --- Re-add definitions for formatting functions --- #
+                        def format_valor_atraso(x):
+                            if isinstance(x, (int, float)) and x > 0:
+                                return f"R$ {x:_.2f}".replace('.', ',').replace('_', '.')
+                            else:
+                                return "—"
+
+                        def format_meses_atraso(x):
+                            if isinstance(x, (int, float)) and x > 0:
+                                return f"{int(x)} {'mês' if int(x) == 1 else 'meses'}"
+                            else:
+                                return "—"
+                        # --- End re-added definitions --- #
+
+                        st.dataframe(
+                            df_display.style
+                            .apply(highlight_projects_atraso, axis=1) # Use the correct highlight function
+                            .format({
+                                'VALOR DO CONTRATO': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.'),
+                                'REPASSE PENDENTE DO CONTRATO': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.'),
+                                'SALDO A RECEBER ATRASADO': format_valor_atraso,
+                                'MESES EM ATRASO': format_meses_atraso,
+                                'PREVISÃO DE VALORES DE RECEBIMENTO': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.') if pd.notna(x) else "—"
+                            }),
+                            use_container_width=True
+                        )
+
+                        # --- Removed Download Button Logic from here --- #
+
+                else:
+                    st.success("Não há projetos com saldo a receber em atraso!")
         else:
-            # Adicionar log para debugging da coluna CLIENTE
-            st.warning(f"DEBUG: A coluna 'CLIENTE' não foi encontrada no DataFrame df_desvio. Colunas disponíveis: {list(df_desvio.columns)}")
-            # Verificar se tem alguma coluna similar
-            colunas_similares = [col for col in df_desvio.columns if 'CLIENT' in col.upper()]
-            if colunas_similares:
-                st.info(f"DEBUG: Colunas similares encontradas: {colunas_similares}")
-                # Usar a primeira coluna similar como fallback
-                if len(colunas_similares) > 0:
-                    st.info(f"DEBUG: Usando '{colunas_similares[0]}' como fallback para 'CLIENTE'")
-                    df_desvio['CLIENTE'] = df_desvio[colunas_similares[0]]
-                    group_cols.append('CLIENTE')
-                    
-        if 'PROJETO' in df_desvio.columns:
-            group_cols.append('PROJETO')
+            st.success("Não há projetos com linhas de repasse em atraso!")
+
+        # Dashboard de Desvio de Proporção
+        st.markdown("---")
+        st.subheader("Desvio na Proporção dos Repasses 🔍")
+
+        try:
+            # Calcular métricas de desvio
+            tolerance = 20.0
             
-        # Lista de colunas para agregar
-        agg_dict = {}
-        if 'REPASSE RECEBIDO' in df_desvio.columns:
-            agg_dict['REPASSE RECEBIDO'] = 'sum'
-        if 'VALOR DO CONTRATO' in df_desvio.columns:
-            agg_dict['VALOR DO CONTRATO'] = 'first'  # Assume que é o mesmo para todas as linhas do projeto
-        if 'CUSTOS INCORRIDOS' in df_desvio.columns:
-            agg_dict['CUSTOS INCORRIDOS'] = 'first'  # Pega apenas o primeiro valor, não soma, pois é o mesmo para todas as linhas
-        if 'VALOR' in df_desvio.columns:
-            agg_dict['VALOR'] = 'sum'  # Soma todos os valores recebidos para este projeto
-        if 'OUTROS CORRELATOS' in df_desvio.columns:
+            # Verificar se df_desvio possui as colunas necessárias
+            colunas_necessarias_desvio = ['REPASSE RECEBIDO', 'VALOR DO CONTRATO', 'CUSTOS INCORRIDOS', 'VALOR', 'OUTROS CORRELATOS', 'VALOR2']
+            colunas_faltantes = [col for col in colunas_necessarias_desvio if col not in df_desvio.columns]
+            
+            if colunas_faltantes:
+                st.warning(f"Atenção: As seguintes colunas estão faltando nos dados: {', '.join(colunas_faltantes)}")
+                st.info("Isso pode afetar os cálculos de desvio de proporção. Verifique a planilha de origem.")
+                # Adicionar colunas faltantes com valores zerados para evitar erros
+                for col in colunas_faltantes:
+                    df_desvio[col] = 0
+                    
+            # Continuar com os cálculos de desvio
+            df_desvio['PROP REPASSE'] = df_desvio.apply(
+                lambda row: row['REPASSE RECEBIDO'] / row['VALOR DO CONTRATO']
+                if row['REPASSE RECEBIDO'] and row['VALOR DO CONTRATO'] != 0 else np.nan, axis=1)
+
+            df_desvio['EXPECTED VALOR'] = df_desvio.apply(
+                lambda row: row['CUSTOS INCORRIDOS'] * row['PROP REPASSE']
+                if pd.notna(row['PROP REPASSE']) and row['CUSTOS INCORRIDOS'] > 0 else np.nan, axis=1)
+
+            df_desvio['EXPECTED VALOR2'] = df_desvio.apply(
+                lambda row: row['OUTROS CORRELATOS'] * row['PROP REPASSE']
+                if pd.notna(row['PROP REPASSE']) and row['OUTROS CORRELATOS'] > 0 else np.nan, axis=1)
+
+            df_desvio['EXPECTED VALOR RND'] = df_desvio['EXPECTED VALOR'].round(2)
+            df_desvio['EXPECTED VALOR2 RND'] = df_desvio['EXPECTED VALOR2'].round(2)
+            df_desvio['VALOR RND'] = df_desvio['VALOR'].round(2)
+            df_desvio['VALOR2 RND'] = df_desvio['VALOR2'].round(2)
+
+            df_desvio['DESVIO VALOR'] = df_desvio.apply(
+                lambda row: True if (pd.notna(row['EXPECTED VALOR RND']) and 
+                                  (row['EXPECTED VALOR RND'] - row['VALOR RND'] > tolerance))
+                            else False, axis=1)
+
+            df_desvio['DESVIO VALOR2'] = df_desvio.apply(
+                lambda row: True if (pd.notna(row['EXPECTED VALOR2 RND']) and 
+                                  (row['EXPECTED VALOR2 RND'] - row['VALOR2 RND'] > tolerance))
+                            else False, axis=1)
+
+            df_desvio['DESVIO PROPORCAO'] = df_desvio['DESVIO VALOR'] | df_desvio['DESVIO VALOR2']
+
+            # Calcular o desvio em reais somando as diferenças dos dois tipos
+            df_desvio['DESVIO VALOR REAIS'] = df_desvio.apply(
+                lambda row: (row['EXPECTED VALOR RND'] - row['VALOR RND']) 
+                if pd.notna(row['EXPECTED VALOR RND']) and pd.notna(row['VALOR RND']) else 0, axis=1
+            )
+
+            df_desvio['DESVIO VALOR2 REAIS'] = df_desvio.apply(
+                lambda row: (row['EXPECTED VALOR2 RND'] - row['VALOR2 RND']) 
+                if pd.notna(row['EXPECTED VALOR2 RND']) and pd.notna(row['VALOR2 RND']) else 0, axis=1
+            )
+
+            # Somar os dois tipos de desvio para obter o desvio total em reais
+            df_desvio['DESVIO EM REAIS'] = df_desvio['DESVIO VALOR REAIS'] + df_desvio['DESVIO VALOR2 REAIS']
+
+            # Garantir que registros com valor total do desvio igual a zero reais não entrem no modelo
+            df_desvio.loc[df_desvio['DESVIO EM REAIS'] <= 0, 'DESVIO PROPORCAO'] = False
+
+            # Nova lógica: verificar desvios por bloco de projeto
+            # Este cálculo corrige casos onde múltiplas linhas do mesmo projeto podem parecer em desvio
+            # individualmente, mas quando analisadas em conjunto (como um bloco) estão corretas.
+            # Exemplo: Um projeto com dois repasses (33% e 34%) pode ter múltiplos pagamentos distribuídos
+            # que não correspondem linha a linha, mas que no total representam a proporção correta.
+
             # Agrupar por projeto para somar valores de múltiplas linhas do mesmo projeto
             group_cols = []
             if 'QUANT.' in df_desvio.columns:
@@ -2574,52 +2555,52 @@ if st.session_state["authentication_status"]:
                     st.rerun()  # Force rerun to hide the table
             # --- End Desvio de Proporção Section Logic ---
 
-    except Exception as e:
-        # Existing error handling logic
-        erro_detalhado = f"Erro ao carregar o dashboard de desvios: {str(e)}"
-        erro_str = str(e)
+        except Exception as e:
+            # Existing error handling logic
+            erro_detalhado = f"Erro ao carregar o dashboard de desvios: {str(e)}"
+            erro_str = str(e)
 
-        # Verificar se o erro está relacionado a colunas
-        if "'CLIENTE'" in erro_str or "not in index" in erro_str or "PAGINA" in erro_str or "'PÁGINA'" in erro_str:
-            # Mostrar informações detalhadas sobre as colunas disponíveis
-            if 'projeto_totals' in locals():
-                colunas_disponiveis = list(projeto_totals.columns)
-                erro_detalhado += f"\n\nColunas disponíveis em projeto_totals: {colunas_disponiveis}"
+            # Verificar se o erro está relacionado a colunas
+            if "'CLIENTE'" in erro_str or "not in index" in erro_str or "PAGINA" in erro_str or "'PÁGINA'" in erro_str:
+                # Mostrar informações detalhadas sobre as colunas disponíveis
+                if 'projeto_totals' in locals():
+                    colunas_disponiveis = list(projeto_totals.columns)
+                    erro_detalhado += f"\n\nColunas disponíveis em projeto_totals: {colunas_disponiveis}"
 
-                # Verificar se é problema de nomenclatura (maiúsculas/minúsculas)
-                if "'CLIENTE'" in erro_str:
-                    colunas_similares = [col for col in colunas_disponiveis if col.upper() == 'CLIENTE' or 'CLIENT' in col.upper()]
-                    if colunas_similares:
-                        erro_detalhado += f"\n\nColunas similares a 'CLIENTE' encontradas: {colunas_similares}"
+                    # Verificar se é problema de nomenclatura (maiúsculas/minúsculas)
+                    if "'CLIENTE'" in erro_str:
+                        colunas_similares = [col for col in colunas_disponiveis if col.upper() == 'CLIENTE' or 'CLIENT' in col.upper()]
+                        if colunas_similares:
+                            erro_detalhado += f"\n\nColunas similares a 'CLIENTE' encontradas: {colunas_similares}"
 
-                # Verificar erros relacionados a PAGINA ou PÁGINA
-                if "'PAGINA'" in erro_str or "'PÁGINA'" in erro_str or "PAGINA" in erro_str:
-                    erro_detalhado += "\n\nErro relacionado à coluna PÁGINA. Verifique se a coluna existe e está com o acento correto."
+                    # Verificar erros relacionados a PAGINA ou PÁGINA
+                    if "'PAGINA'" in erro_str or "'PÁGINA'" in erro_str or "PAGINA" in erro_str:
+                        erro_detalhado += "\n\nErro relacionado à coluna PÁGINA. Verifique se a coluna existe e está com o acento correto."
 
-                # Verificar erros de colunas não encontradas
-                if "not in index" in erro_str:
-                    coluna_faltante = erro_str.split("'")[1] if "'" in erro_str else "desconhecida"
-                    erro_detalhado += f"\n\nColuna '{coluna_faltante}' não encontrada no DataFrame."
+                    # Verificar erros de colunas não encontradas
+                    if "not in index" in erro_str:
+                        coluna_faltante = erro_str.split("'")[1] if "'" in erro_str else "desconhecida"
+                        erro_detalhado += f"\n\nColuna '{coluna_faltante}' não encontrada no DataFrame."
 
-            # Check df_exibir_desvio existence before accessing columns
-            if 'df_exibir_desvio' in locals() and isinstance(df_exibir_desvio, pd.DataFrame):
-                erro_detalhado += f"\n\nColunas disponíveis em df_exibir_desvio: {list(df_exibir_desvio.columns)}"
+                # Check df_exibir_desvio existence before accessing columns
+                if 'df_exibir_desvio' in locals() and isinstance(df_exibir_desvio, pd.DataFrame):
+                    erro_detalhado += f"\n\nColunas disponíveis em df_exibir_desvio: {list(df_exibir_desvio.columns)}"
 
-            erro_detalhado += "\n\nVerifique se o nome da coluna está correto ou se os dados foram carregados corretamente."
+                erro_detalhado += "\n\nVerifique se o nome da coluna está correto ou se os dados foram carregados corretamente."
 
-        st.error(erro_detalhado)
+            st.error(erro_detalhado)
 
-        # Mostrar detalhes do erro para debugging
-        if st.checkbox("Mostrar detalhes técnicos para debugging"):
-            st.warning("Informações técnicas (para desenvolvedor):")
+            # Mostrar detalhes do erro para debugging
+            if st.checkbox("Mostrar detalhes técnicos para debugging"):
+                st.warning("Informações técnicas (para desenvolvedor):")
 
-            # Mostrar informações das colunas
-            if 'df_desvio' in locals():
-                st.write("Colunas disponíveis em df_desvio:", list(df_desvio.columns))
+                # Mostrar informações das colunas
+                if 'df_desvio' in locals():
+                    st.write("Colunas disponíveis em df_desvio:", list(df_desvio.columns))
 
-            # Mostrar stack trace completo
-            import traceback
-            st.code(traceback.format_exc())
+                # Mostrar stack trace completo
+                import traceback
+                st.code(traceback.format_exc())
 
         # Adicionando espaço após as métricas
         st.markdown("---")
@@ -2628,446 +2609,436 @@ if st.session_state["authentication_status"]:
         st.subheader("Análise Gráfica")
         st.markdown("<p style='margin-bottom: 20px;'>Visualizações gráficas dos dados financeiros possivelmente úteis para tomadas de decisão.</p>", unsafe_allow_html=True)
 
-        # Wrap graphic analysis section in try-except
-        try:
-            # Inicializar estado para os filtros dos gráficos se não existir
-            if 'graph_filters' not in st.session_state:
-                st.session_state.graph_filters = {
-                    'cliente': {'datas': [], 'tipos': [], 'fundacoes': []},
-                    'fundacao': {'datas': [], 'tipos': []},
-                    'tipo': {'datas': [], 'fundacoes': []},
-                    'custos': {'datas': [], 'fundacoes': [], 'clientes': []}
-                }
-                
-            # Função de callback para atualizar os filtros sem refresh completo
-            def update_graph_filter(graph_type, filter_type, value):
-                st.session_state.graph_filters[graph_type][filter_type] = value
+        # Inicializar estado para os filtros dos gráficos se não existir
+        if 'graph_filters' not in st.session_state:
+            st.session_state.graph_filters = {
+                'cliente': {'datas': [], 'tipos': [], 'fundacoes': []},
+                'fundacao': {'datas': [], 'tipos': []},
+                'tipo': {'datas': [], 'fundacoes': []},
+                'custos': {'datas': [], 'fundacoes': [], 'clientes': []}
+            }
+            
+        # Função de callback para atualizar os filtros sem refresh completo
+        def update_graph_filter(graph_type, filter_type, value):
+            st.session_state.graph_filters[graph_type][filter_type] = value
 
-            # Criando colunas para os gráficos
-            row1_col1, row1_col2 = st.columns(2)
-            row2_col1, row2_col2 = st.columns(2)
+        # Criando colunas para os gráficos
+        row1_col1, row1_col2 = st.columns(2)
+        row2_col1, row2_col2 = st.columns(2)
 
-            def gerar_analise_grafico(dados, tipo_grafico):
-                """
-                Gera análise automática dos dados do gráfico usando IA simples.
-                
-                Args:
-                    dados: DataFrame pandas com os dados do gráfico
-                    tipo_grafico: string indicando o tipo de gráfico ('fundacao', 'tipo', 'cliente', 'custos')
-                
-                Returns:
-                    String com análise gerada sobre os dados
-                """
-                try:
-                    if tipo_grafico == 'fundacao':
-                        # Análise para gráfico de Valor a Receber por Fundação
-                        total = dados['SALDO A RECEBER'].sum()
-                        maior_fundacao = dados.iloc[0]['FUNDAÇÃO']
-                        valor_maior = dados.iloc[0]['SALDO A RECEBER']
-                        percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
-                        
-                        # Calcular a concentração nas 3 principais fundações
-                        top3_valor = dados.head(3)['SALDO A RECEBER'].sum()
-                        top3_percentual = (top3_valor / total) * 100 if total > 0 else 0
-                        
-                        analise = f"""
-                        <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
-                            <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> A fundação <strong>{maior_fundacao}</strong> representa {percentual_maior:.1f}% do total a receber.
-                            As três principais fundações concentram {top3_percentual:.1f}% do valor total.</p>
-                        </div>
-                        """
-                        
-                    elif tipo_grafico == 'tipo':
-                        # Análise para gráfico de Valor a Receber por Tipo de Serviço
-                        total = dados['SALDO A RECEBER'].sum()
-                        maior_tipo = dados.iloc[0]['TIPO']
-                        valor_maior = dados.iloc[0]['SALDO A RECEBER']
-                        percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
-                        
-                        # Verificar diversificação dos tipos de serviço
-                        qtd_tipos = len(dados)
-                        diversificacao = "alta" if qtd_tipos >= 4 else "média" if qtd_tipos >= 2 else "baixa"
-                        
-                        analise = f"""
-                        <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
-                            <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> O serviço <strong>{maior_tipo}</strong> representa {percentual_maior:.1f}% do total a receber.
-                            A diversificação de serviços é {diversificacao} com {qtd_tipos} tipos diferentes.</p>
-                        </div>
-                        """
-                        
-                    elif tipo_grafico == 'cliente':
-                        # Análise para gráfico de Distribuição por Cliente
-                        maior_cliente = dados.iloc[-1]['CLIENTE AGRUPADO']  # Último item devido ao sort ascending=True
-                        valor_maior = dados.iloc[-1]['SALDO A RECEBER']
-                        total = dados['SALDO A RECEBER'].sum()
-                        percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
-                        
-                        # Verificar concentração em "Outros"
-                        tem_outros = 'Outros' in dados['CLIENTE AGRUPADO'].values
-                        
-                        if tem_outros:
-                            valor_outros = dados[dados['CLIENTE AGRUPADO'] == 'Outros']['SALDO A RECEBER'].sum()
-                            percentual_outros = (valor_outros / total) * 100 if total > 0 else 0
-                            analise_outros = f"Clientes menores ('Outros') representam {percentual_outros:.1f}% do faturamento."
-                        else:
-                            analise_outros = "Não há clientes agrupados na categoria 'Outros'."
-                        
-                        analise = f"""
-                        <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
-                            <p style='font-size: 14px; margin: 0;'><strong> Análise em tempo real:</strong> O cliente <strong>{maior_cliente}</strong> representa {percentual_maior:.1f}% do valor total a receber.
-                            {analise_outros}</p>
-                        </div>
-                        """
-                        
-                    elif tipo_grafico == 'custos':
-                        # Análise para gráfico de Distribuição dos Custos
-                        total = sum(dados)
-                        percentual_incorridos = (dados[0] / total) * 100 if total > 0 else 0
-                        percentual_correlatos = (dados[1] / total) * 100 if total > 0 else 0
-                        
-                        razao = dados[0] / dados[1] if dados[1] > 0 else float('inf')
-                        analise_razao = f"Os custos incorridos são {razao:.1f}x maiores que os correlatos."
-                        
-                        analise = f"""
-                        <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
-                            <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> Custos incorridos representam {percentual_incorridos:.1f}% do total.
-                            {analise_razao}</p>
-                        </div>
-                        """
+        def gerar_analise_grafico(dados, tipo_grafico):
+            """
+            Gera análise automática dos dados do gráfico usando IA simples.
+            
+            Args:
+                dados: DataFrame pandas com os dados do gráfico
+                tipo_grafico: string indicando o tipo de gráfico ('fundacao', 'tipo', 'cliente', 'custos')
+            
+            Returns:
+                String com análise gerada sobre os dados
+            """
+            try:
+                if tipo_grafico == 'fundacao':
+                    # Análise para gráfico de Valor a Receber por Fundação
+                    total = dados['SALDO A RECEBER'].sum()
+                    maior_fundacao = dados.iloc[0]['FUNDAÇÃO']
+                    valor_maior = dados.iloc[0]['SALDO A RECEBER']
+                    percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
+                    
+                    # Calcular a concentração nas 3 principais fundações
+                    top3_valor = dados.head(3)['SALDO A RECEBER'].sum()
+                    top3_percentual = (top3_valor / total) * 100 if total > 0 else 0
+                    
+                    analise = f"""
+                    <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
+                        <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> A fundação <strong>{maior_fundacao}</strong> representa {percentual_maior:.1f}% do total a receber.
+                        As três principais fundações concentram {top3_percentual:.1f}% do valor total.</p>
+                    </div>
+                    """
+                    
+                elif tipo_grafico == 'tipo':
+                    # Análise para gráfico de Valor a Receber por Tipo de Serviço
+                    total = dados['SALDO A RECEBER'].sum()
+                    maior_tipo = dados.iloc[0]['TIPO']
+                    valor_maior = dados.iloc[0]['SALDO A RECEBER']
+                    percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
+                    
+                    # Verificar diversificação dos tipos de serviço
+                    qtd_tipos = len(dados)
+                    diversificacao = "alta" if qtd_tipos >= 4 else "média" if qtd_tipos >= 2 else "baixa"
+                    
+                    analise = f"""
+                    <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
+                        <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> O serviço <strong>{maior_tipo}</strong> representa {percentual_maior:.1f}% do total a receber.
+                        A diversificação de serviços é {diversificacao} com {qtd_tipos} tipos diferentes.</p>
+                    </div>
+                    """
+                    
+                elif tipo_grafico == 'cliente':
+                    # Análise para gráfico de Distribuição por Cliente
+                    maior_cliente = dados.iloc[-1]['CLIENTE AGRUPADO']  # Último item devido ao sort ascending=True
+                    valor_maior = dados.iloc[-1]['SALDO A RECEBER']
+                    total = dados['SALDO A RECEBER'].sum()
+                    percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
+                    
+                    # Verificar concentração em "Outros"
+                    tem_outros = 'Outros' in dados['CLIENTE AGRUPADO'].values
+                    
+                    if tem_outros:
+                        valor_outros = dados[dados['CLIENTE AGRUPADO'] == 'Outros']['SALDO A RECEBER'].sum()
+                        percentual_outros = (valor_outros / total) * 100 if total > 0 else 0
+                        analise_outros = f"Clientes menores ('Outros') representam {percentual_outros:.1f}% do faturamento."
                     else:
-                        analise = "<div></div>"
-                        
-                    return analise
-                except Exception as e:
-                    return f"<div style='color: #999; font-size: 12px;'>Não foi possível gerar análise: {str(e)}</div>"
-
-            # Gráfico de barras horizontais - Distribuição por Cliente
-            with row2_col1:
-                st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Distribuição por Cliente</h3>", unsafe_allow_html=True)
-                
-                col_date, col_tipo, col_fundacao = st.columns(3)
-                
-                with col_date:
-                    datas_disponiveis = ordenar_datas(data['DATA'].unique())
-                    datas_selecionadas = st.multiselect(
-                        "Data:", 
-                        datas_disponiveis, 
-                        default=st.session_state.graph_filters['cliente']['datas'],
-                        key="cliente_data_select",
-                        on_change=update_graph_filter,
-                        args=('cliente', 'datas', st.session_state.get('cliente_data_select', []))
-                    )
-                    # Atualizar valores no session_state
-                    st.session_state.graph_filters['cliente']['datas'] = datas_selecionadas
+                        analise_outros = "Não há clientes agrupados na categoria 'Outros'."
                     
-                with col_tipo:
-                    tipos_disponiveis = sorted(data['TIPO'].unique())
-                    tipos_selecionados = st.multiselect(
-                        "Tipo de Serviço:", 
-                        tipos_disponiveis, 
-                        default=st.session_state.graph_filters['cliente']['tipos'],
-                        key="cliente_tipo_select",
-                        on_change=update_graph_filter,
-                        args=('cliente', 'tipos', st.session_state.get('cliente_tipo_select', []))
-                    )
-                    # Atualizar valores no session_state
-                    st.session_state.graph_filters['cliente']['tipos'] = tipos_selecionados
+                    analise = f"""
+                    <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
+                        <p style='font-size: 14px; margin: 0;'><strong> Análise em tempo real:</strong> O cliente <strong>{maior_cliente}</strong> representa {percentual_maior:.1f}% do valor total a receber.
+                        {analise_outros}</p>
+                    </div>
+                    """
                     
-                with col_fundacao:
-                    fundacoes_disponiveis = sorted(data['FUNDAÇÃO'].unique())
-                    fundacoes_selecionadas = st.multiselect(
-                        "Fundação:", 
-                        fundacoes_disponiveis, 
-                        default=st.session_state.graph_filters['cliente']['fundacoes'],
-                        key="cliente_fundacao_select",
-                        on_change=update_graph_filter,
-                        args=('cliente', 'fundacoes', st.session_state.get('cliente_fundacao_select', []))
-                    )
-                    # Atualizar valores no session_state
-                    st.session_state.graph_filters['cliente']['fundacoes'] = fundacoes_selecionadas
-                
-                # Use values from session state for filtering
-                dados_local = data.copy()
-                if st.session_state.graph_filters['cliente']['datas']:
-                    dados_local = dados_local[dados_local['DATA'].isin(st.session_state.graph_filters['cliente']['datas'])]
-                if st.session_state.graph_filters['cliente']['tipos']:
-                    dados_local = dados_local[dados_local['TIPO'].isin(st.session_state.graph_filters['cliente']['tipos'])]
-                if st.session_state.graph_filters['cliente']['fundacoes']:
-                    dados_local = dados_local[dados_local['FUNDAÇÃO'].isin(st.session_state.graph_filters['cliente']['fundacoes'])]
+                elif tipo_grafico == 'custos':
+                    # Análise para gráfico de Distribuição dos Custos
+                    total = sum(dados)
+                    percentual_incorridos = (dados[0] / total) * 100 if total > 0 else 0
+                    percentual_correlatos = (dados[1] / total) * 100 if total > 0 else 0
                     
-                # Create the graph
-                total_por_cliente = dados_local.groupby('CLIENTE')['SALDO A RECEBER'].sum().reset_index()
-                total_por_cliente = total_por_cliente.sort_values(by='SALDO A RECEBER', ascending=False)
-                total_por_cliente['CLIENTE AGRUPADO'] = total_por_cliente['CLIENTE']
-                total_por_cliente.loc[
-                    total_por_cliente['SALDO A RECEBER'] / total_por_cliente['SALDO A RECEBER'].sum() < 0.03,
-                    'CLIENTE AGRUPADO'
-                ] = 'Outros'
-                
-                agrupado = total_por_cliente.groupby('CLIENTE AGRUPADO')['SALDO A RECEBER'].sum().reset_index()
-                agrupado = agrupado.sort_values(by='SALDO A RECEBER', ascending=True)
-                agrupado['SALDO A RECEBER'] /= 1_000_000
-                
-                cores = colors_palette[:len(agrupado)]
-                fig_bar, ax_bar = plt.subplots(figsize=(3, 2))
-                ax_bar.barh(agrupado['CLIENTE AGRUPADO'], agrupado['SALDO A RECEBER'], color=cores)
-                ax_bar.set_xlabel('Saldo a Receber (em milhões)', fontsize=5)
-                ax_bar.set_ylabel('Cliente', fontsize=5)
-                ax_bar.ticklabel_format(style='plain', axis='x', useOffset=False)
-                ax_bar.tick_params(axis='x', labelsize=4)
-                ax_bar.tick_params(axis='y', labelsize=4)
-                for i, v in enumerate(agrupado['SALDO A RECEBER']):
-                    ax_bar.text(v + (v * 0.01), i, f'R$ {v:,.2f}M'.replace(',', '_').replace('.', ',').replace('_', '.'), va='center', fontsize=4, color='black')
-                st.pyplot(fig_bar, use_container_width=False)
-                
-                # Adicionar análise automática
-                analise_cliente = gerar_analise_grafico(agrupado, 'cliente')
-                st.markdown(analise_cliente, unsafe_allow_html=True)
-                
-            # Gráfico de Pizza: Distribuição dos Custos Incorridos e Correlatos
-            with row2_col2:
-                st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Distribuição dos Custos</h3>", unsafe_allow_html=True)
-                
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    datas_disponiveis_custos = ordenar_datas(data['DATA'].unique())
-                    datas_selecionadas_custos = st.multiselect(
-                        "Data:", 
-                        datas_disponiveis_custos, 
-                        default=st.session_state.graph_filters['custos']['datas'],
-                        key="custos_data_select",
-                        on_change=update_graph_filter,
-                        args=('custos', 'datas', st.session_state.get('custos_data_select', []))
-                    )
-                    st.session_state.graph_filters['custos']['datas'] = datas_selecionadas_custos
+                    razao = dados[0] / dados[1] if dados[1] > 0 else float('inf')
+                    analise_razao = f"Os custos incorridos são {razao:.1f}x maiores que os correlatos."
                     
-                with col2:
-                    fundacoes_disponiveis_custos = sorted(data['FUNDAÇÃO'].unique())
-                    fundacoes_selecionadas_custos = st.multiselect(
-                        "Fundação:", 
-                        fundacoes_disponiveis_custos, 
-                        default=st.session_state.graph_filters['custos']['fundacoes'],
-                        key="custos_fundacao_select",
-                        on_change=update_graph_filter,
-                        args=('custos', 'fundacoes', st.session_state.get('custos_fundacao_select', []))
-                    )
-                    st.session_state.graph_filters['custos']['fundacoes'] = fundacoes_selecionadas_custos
+                    analise = f"""
+                    <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
+                        <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> Custos incorridos representam {percentual_incorridos:.1f}% do total.
+                        {analise_razao}</p>
+                    </div>
+                    """
+                else:
+                    analise = "<div></div>"
                     
-                with col3:
-                    clientes_disponiveis_custos = sorted(data['CLIENTE'].unique())
-                    clientes_selecionados_custos = st.multiselect(
-                        "Cliente:", 
-                        clientes_disponiveis_custos, 
-                        default=st.session_state.graph_filters['custos']['clientes'],
-                        key="custos_cliente_select",
-                        on_change=update_graph_filter,
-                        args=('custos', 'clientes', st.session_state.get('custos_cliente_select', []))
-                    )
-                    st.session_state.graph_filters['custos']['clientes'] = clientes_selecionados_custos
-                    
-                dados_local_custos = data.copy()
-                if st.session_state.graph_filters['custos']['datas']:
-                    dados_local_custos = dados_local_custos[dados_local_custos['DATA'].isin(st.session_state.graph_filters['custos']['datas'])]
-                if st.session_state.graph_filters['custos']['fundacoes']:
-                    dados_local_custos = dados_local_custos[dados_local_custos['FUNDAÇÃO'].isin(st.session_state.graph_filters['custos']['fundacoes'])]
-                if st.session_state.graph_filters['custos']['clientes']:
-                    dados_local_custos = dados_local_custos[dados_local_custos['CLIENTE'].isin(st.session_state.graph_filters['custos']['clientes'])]
+                return analise
+            except Exception as e:
+                return f"<div style='color: #999; font-size: 12px;'>Não foi possível gerar análise: {str(e)}</div>"
 
-                # --- Corrected Cost Calculation: Sum unique costs per project --- #
-                # Define project grouping keys (ensure these uniquely identify a project contract)
-                project_group_keys_costs = []
-                if 'QUANT.' in dados_local_custos.columns:
-                    project_group_keys_costs.append('QUANT.')
-                if 'CLIENTE' in dados_local_custos.columns:
-                    project_group_keys_costs.append('CLIENTE')
-                if 'PROJETO' in dados_local_custos.columns:
-                    project_group_keys_costs.append('PROJETO')
-                # Add VALOR DO CONTRATO as it seems crucial for unique project identification
-                if 'VALOR DO CONTRATO' in dados_local_custos.columns:
-                     project_group_keys_costs.append('VALOR DO CONTRATO')
-
-                total_custos_incurridos = 0
-                total_custos_correlatos = 0
-
-                if project_group_keys_costs and not dados_local_custos.empty:
-                     # Group by unique project and take the first cost value (assuming it's repeated)
-                     unique_project_costs = dados_local_custos.groupby(project_group_keys_costs, observed=True, dropna=False).agg(
-                         unique_incurridos=('CUSTOS INCORRIDOS', 'first'),
-                         unique_correlatos=('OUTROS CORRELATOS', 'first')
-                     ).reset_index()
-
-                     # Sum the unique costs
-                     total_custos_incurridos = unique_project_costs['unique_incurridos'].sum()
-                     total_custos_correlatos = unique_project_costs['unique_correlatos'].sum()
-
-                custos_labels = ['Custos Incorridos', 'Custos Correlatos']
-                custos_values = [total_custos_incurridos, total_custos_correlatos]
-                color_map = {
-                    'Custos Incorridos': '#a1c9f4',
-                    'Custos Correlatos': '#a1f4c9'
-                }
-                custos_colors = [color_map[label] for label in custos_labels]
-                
-                def make_autopct(values):
-                    def my_autopct(pct):
-                        total = sum(values)
-                        val = pct * total / 100.0
-                        return f'{pct:.1f}%\nR$ {val:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
-                    return my_autopct
-                
-                fig_pizza, ax_pizza = plt.subplots(figsize=(2, 2.35))
-                wedges, texts, autotexts = ax_pizza.pie(
-                    custos_values,
-                    labels=custos_labels,
-                    autopct=make_autopct(custos_values),
-                    startangle=60,
-                    colors=custos_colors,
-                    textprops={'fontsize': 5}
+        # Gráfico de barras horizontais - Distribuição por Cliente
+        with row2_col1:
+            st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Distribuição por Cliente</h3>", unsafe_allow_html=True)
+            
+            col_date, col_tipo, col_fundacao = st.columns(3)
+            
+            with col_date:
+                datas_disponiveis = ordenar_datas(data['DATA'].unique())
+                datas_selecionadas = st.multiselect(
+                    "Data:", 
+                    datas_disponiveis, 
+                    default=st.session_state.graph_filters['cliente']['datas'],
+                    key="cliente_data_select",
+                    on_change=update_graph_filter,
+                    args=('cliente', 'datas', st.session_state.get('cliente_data_select', []))
                 )
-                plt.legend(custos_labels, fontsize=5, loc='center left', bbox_to_anchor=(1, 0.5))
-                ax_pizza.axis('equal')
-                st.pyplot(fig_pizza, use_container_width=False)
+                # Atualizar valores no session_state
+                st.session_state.graph_filters['cliente']['datas'] = datas_selecionadas
                 
-                # Adicionar análise automática
-                analise_custos = gerar_analise_grafico(custos_values, 'custos')
-                st.markdown(analise_custos, unsafe_allow_html=True)
-                
-            # Gráfico de barras - Distribuição de Valor a Receber por Fundação
-            with row1_col1:
-                st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Valor a Receber por Fundação</h3>", unsafe_allow_html=True)
-                
-                col_date, col_tipo = st.columns(2)
-                
-                with col_date:
-                    datas_disponiveis_fundacao = ordenar_datas(data['DATA'].unique())
-                    datas_selecionadas_fundacao = st.multiselect(
-                        "Data:", 
-                        datas_disponiveis_fundacao, 
-                        default=st.session_state.graph_filters['fundacao']['datas'],
-                        key="fundacao_data_select",
-                        on_change=update_graph_filter,
-                        args=('fundacao', 'datas', st.session_state.get('fundacao_data_select', []))
-                    )
-                    st.session_state.graph_filters['fundacao']['datas'] = datas_selecionadas_fundacao
-                    
-                with col_tipo:
-                    tipos_disponiveis = sorted(data['TIPO'].unique())
-                    tipos_selecionados_fund = st.multiselect(
-                        "Tipo de Serviço:", 
-                        tipos_disponiveis, 
-                        default=st.session_state.graph_filters['fundacao']['tipos'],
-                        key="fundacao_tipo_select",
-                        on_change=update_graph_filter,
-                        args=('fundacao', 'tipos', st.session_state.get('fundacao_tipo_select', []))
-                    )
-                    st.session_state.graph_filters['fundacao']['tipos'] = tipos_selecionados_fund
-                    
-                dados_local_fundacao = data.copy()
-                if st.session_state.graph_filters['fundacao']['datas']:
-                    dados_local_fundacao = dados_local_fundacao[dados_local_fundacao['DATA'].isin(st.session_state.graph_filters['fundacao']['datas'])]
-                if st.session_state.graph_filters['fundacao']['tipos']:
-                    dados_local_fundacao = dados_local_fundacao[dados_local_fundacao['TIPO'].isin(st.session_state.graph_filters['fundacao']['tipos'])]
-                
-                total_a_receber_por_fundacao = dados_local_fundacao.groupby('FUNDAÇÃO')['SALDO A RECEBER'].sum().reset_index()
-                total_a_receber_por_fundacao['SALDO A RECEBER'] = pd.to_numeric(total_a_receber_por_fundacao['SALDO A RECEBER'], errors='coerce')
-                total_a_receber_por_fundacao = total_a_receber_por_fundacao.sort_values(by='SALDO A RECEBER', ascending=False)
-                
-                fig_bar_fundacao, ax_bar_fundacao = plt.subplots(figsize=(3, 2))
-                ax_bar_fundacao.bar(
-                    total_a_receber_por_fundacao['FUNDAÇÃO'],
-                    total_a_receber_por_fundacao['SALDO A RECEBER'],
-                    color=colors_palette[1]
+            with col_tipo:
+                tipos_disponiveis = sorted(data['TIPO'].unique())
+                tipos_selecionados = st.multiselect(
+                    "Tipo de Serviço:", 
+                    tipos_disponiveis, 
+                    default=st.session_state.graph_filters['cliente']['tipos'],
+                    key="cliente_tipo_select",
+                    on_change=update_graph_filter,
+                    args=('cliente', 'tipos', st.session_state.get('cliente_tipo_select', []))
                 )
-                ax_bar_fundacao.set_ylabel('Valor total a receber', fontsize=5)
-                ax_bar_fundacao.set_xlabel('Fundação', fontsize=5)
-                for i, v in enumerate(total_a_receber_por_fundacao['SALDO A RECEBER']):
-                    num_val = float(v)
-                    ax_bar_fundacao.text(i, num_val + 10000, f'R$ {num_val:,.0f}'.replace(',', '_').replace('.', ',').replace('_', '.'), 
-                                        ha='center', va='bottom', fontsize=5)
-                plt.ticklabel_format(axis='y', style='plain')
-                plt.xticks(rotation=0, ha='center', fontsize=5)
-                plt.yticks(fontsize=5)
-                plt.tight_layout()
-                st.pyplot(fig_bar_fundacao, use_container_width=False)
+                # Atualizar valores no session_state
+                st.session_state.graph_filters['cliente']['tipos'] = tipos_selecionados
                 
-                # Adicionar análise automática
-                analise_fundacao = gerar_analise_grafico(total_a_receber_por_fundacao, 'fundacao')
-                st.markdown(analise_fundacao, unsafe_allow_html=True)
-                
-            # Gráfico de barras - Distribuição de Valor a Receber por Tipo de Serviço
-            with row1_col2:
-                st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Valor a Receber por Tipo de Serviço</h3>", unsafe_allow_html=True)
-                
-                col_date, col_fundacao = st.columns(2)
-                
-                with col_date:
-                    datas_disponiveis_tipo = ordenar_datas(data['DATA'].unique())
-                    datas_selecionadas_tipo = st.multiselect(
-                        "Data:", 
-                        datas_disponiveis_tipo, 
-                        default=st.session_state.graph_filters['tipo']['datas'],
-                        key="tipo_data_select",
-                        on_change=update_graph_filter,
-                        args=('tipo', 'datas', st.session_state.get('tipo_data_select', []))
-                    )
-                    st.session_state.graph_filters['tipo']['datas'] = datas_selecionadas_tipo
-                    
-                with col_fundacao:
-                    fundacoes_disponiveis_tipo = sorted(data['FUNDAÇÃO'].unique())
-                    fundacoes_selecionadas_tipo = st.multiselect(
-                        "Fundação:", 
-                        fundacoes_disponiveis_tipo, 
-                        default=st.session_state.graph_filters['tipo']['fundacoes'],
-                        key="tipo_fundacao_select",
-                        on_change=update_graph_filter,
-                        args=('tipo', 'fundacoes', st.session_state.get('tipo_fundacao_select', []))
-                    )
-                    st.session_state.graph_filters['tipo']['fundacoes'] = fundacoes_selecionadas_tipo
-                    
-                dados_local_tipo = data.copy()
-                if st.session_state.graph_filters['tipo']['datas']:
-                    dados_local_tipo = dados_local_tipo[dados_local_tipo['DATA'].isin(st.session_state.graph_filters['tipo']['datas'])]
-                if st.session_state.graph_filters['tipo']['fundacoes']:
-                    dados_local_tipo = dados_local_tipo[dados_local_tipo['FUNDAÇÃO'].isin(st.session_state.graph_filters['tipo']['fundacoes'])]
-                
-                total_a_receber_por_tipo = dados_local_tipo.groupby('TIPO')['SALDO A RECEBER'].sum().reset_index()
-                total_a_receber_por_tipo['SALDO A RECEBER'] = pd.to_numeric(total_a_receber_por_tipo['SALDO A RECEBER'], errors='coerce')
-                total_a_receber_por_tipo = total_a_receber_por_tipo.sort_values(by='SALDO A RECEBER', ascending=False)
-                
-                fig_bar_tipo, ax_bar_tipo = plt.subplots(figsize=(3, 2))
-                ax_bar_tipo.bar(
-                    total_a_receber_por_tipo['TIPO'],
-                    total_a_receber_por_tipo['SALDO A RECEBER'],
-                    color=colors_palette[0]
+            with col_fundacao:
+                fundacoes_disponiveis = sorted(data['FUNDAÇÃO'].unique())
+                fundacoes_selecionadas = st.multiselect(
+                    "Fundação:", 
+                    fundacoes_disponiveis, 
+                    default=st.session_state.graph_filters['cliente']['fundacoes'],
+                    key="cliente_fundacao_select",
+                    on_change=update_graph_filter,
+                    args=('cliente', 'fundacoes', st.session_state.get('cliente_fundacao_select', []))
                 )
-                ax_bar_tipo.set_ylabel('Valor total a receber', fontsize=5)
-                ax_bar_tipo.set_xlabel('Tipo de Serviço', fontsize=5)
-                for i, v in enumerate(total_a_receber_por_tipo['SALDO A RECEBER']):
-                    num_val = float(v)
-                    ax_bar_tipo.text(i, num_val + 10000, f'R$ {num_val:,.0f}'.replace(',', '_').replace('.', ',').replace('_', '.'), 
+                # Atualizar valores no session_state
+                st.session_state.graph_filters['cliente']['fundacoes'] = fundacoes_selecionadas
+            
+            # Use values from session state for filtering
+            dados_local = data.copy()
+            if st.session_state.graph_filters['cliente']['datas']:
+                dados_local = dados_local[dados_local['DATA'].isin(st.session_state.graph_filters['cliente']['datas'])]
+            if st.session_state.graph_filters['cliente']['tipos']:
+                dados_local = dados_local[dados_local['TIPO'].isin(st.session_state.graph_filters['cliente']['tipos'])]
+            if st.session_state.graph_filters['cliente']['fundacoes']:
+                dados_local = dados_local[dados_local['FUNDAÇÃO'].isin(st.session_state.graph_filters['cliente']['fundacoes'])]
+                
+            # Create the graph
+            total_por_cliente = dados_local.groupby('CLIENTE')['SALDO A RECEBER'].sum().reset_index()
+            total_por_cliente = total_por_cliente.sort_values(by='SALDO A RECEBER', ascending=False)
+            total_por_cliente['CLIENTE AGRUPADO'] = total_por_cliente['CLIENTE']
+            total_por_cliente.loc[
+                total_por_cliente['SALDO A RECEBER'] / total_por_cliente['SALDO A RECEBER'].sum() < 0.03,
+                'CLIENTE AGRUPADO'
+            ] = 'Outros'
+            
+            agrupado = total_por_cliente.groupby('CLIENTE AGRUPADO')['SALDO A RECEBER'].sum().reset_index()
+            agrupado = agrupado.sort_values(by='SALDO A RECEBER', ascending=True)
+            agrupado['SALDO A RECEBER'] /= 1_000_000
+            
+            cores = colors_palette[:len(agrupado)]
+            fig_bar, ax_bar = plt.subplots(figsize=(3, 2))
+            ax_bar.barh(agrupado['CLIENTE AGRUPADO'], agrupado['SALDO A RECEBER'], color=cores)
+            ax_bar.set_xlabel('Saldo a Receber (em milhões)', fontsize=5)
+            ax_bar.set_ylabel('Cliente', fontsize=5)
+            ax_bar.ticklabel_format(style='plain', axis='x', useOffset=False)
+            ax_bar.tick_params(axis='x', labelsize=4)
+            ax_bar.tick_params(axis='y', labelsize=4)
+            for i, v in enumerate(agrupado['SALDO A RECEBER']):
+                ax_bar.text(v + (v * 0.01), i, f'R$ {v:,.2f}M'.replace(',', '_').replace('.', ',').replace('_', '.'), va='center', fontsize=4, color='black')
+            st.pyplot(fig_bar, use_container_width=False)
+            
+            # Adicionar análise automática
+            analise_cliente = gerar_analise_grafico(agrupado, 'cliente')
+            st.markdown(analise_cliente, unsafe_allow_html=True)
+            
+        # Gráfico de Pizza: Distribuição dos Custos Incorridos e Correlatos
+        with row2_col2:
+            st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Distribuição dos Custos</h3>", unsafe_allow_html=True)
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                datas_disponiveis_custos = ordenar_datas(data['DATA'].unique())
+                datas_selecionadas_custos = st.multiselect(
+                    "Data:", 
+                    datas_disponiveis_custos, 
+                    default=st.session_state.graph_filters['custos']['datas'],
+                    key="custos_data_select",
+                    on_change=update_graph_filter,
+                    args=('custos', 'datas', st.session_state.get('custos_data_select', []))
+                )
+                st.session_state.graph_filters['custos']['datas'] = datas_selecionadas_custos
+                
+            with col2:
+                fundacoes_disponiveis_custos = sorted(data['FUNDAÇÃO'].unique())
+                fundacoes_selecionadas_custos = st.multiselect(
+                    "Fundação:", 
+                    fundacoes_disponiveis_custos, 
+                    default=st.session_state.graph_filters['custos']['fundacoes'],
+                    key="custos_fundacao_select",
+                    on_change=update_graph_filter,
+                    args=('custos', 'fundacoes', st.session_state.get('custos_fundacao_select', []))
+                )
+                st.session_state.graph_filters['custos']['fundacoes'] = fundacoes_selecionadas_custos
+                
+            with col3:
+                clientes_disponiveis_custos = sorted(data['CLIENTE'].unique())
+                clientes_selecionados_custos = st.multiselect(
+                    "Cliente:", 
+                    clientes_disponiveis_custos, 
+                    default=st.session_state.graph_filters['custos']['clientes'],
+                    key="custos_cliente_select",
+                    on_change=update_graph_filter,
+                    args=('custos', 'clientes', st.session_state.get('custos_cliente_select', []))
+                )
+                st.session_state.graph_filters['custos']['clientes'] = clientes_selecionados_custos
+                
+            dados_local_custos = data.copy()
+            if st.session_state.graph_filters['custos']['datas']:
+                dados_local_custos = dados_local_custos[dados_local_custos['DATA'].isin(st.session_state.graph_filters['custos']['datas'])]
+            if st.session_state.graph_filters['custos']['fundacoes']:
+                dados_local_custos = dados_local_custos[dados_local_custos['FUNDAÇÃO'].isin(st.session_state.graph_filters['custos']['fundacoes'])]
+            if st.session_state.graph_filters['custos']['clientes']:
+                dados_local_custos = dados_local_custos[dados_local_custos['CLIENTE'].isin(st.session_state.graph_filters['custos']['clientes'])]
+
+            # --- Corrected Cost Calculation: Sum unique costs per project --- #
+            # Define project grouping keys (ensure these uniquely identify a project contract)
+            project_group_keys_costs = []
+            if 'QUANT.' in dados_local_custos.columns:
+                project_group_keys_costs.append('QUANT.')
+            if 'CLIENTE' in dados_local_custos.columns:
+                project_group_keys_costs.append('CLIENTE')
+            if 'PROJETO' in dados_local_custos.columns:
+                project_group_keys_costs.append('PROJETO')
+            # Add VALOR DO CONTRATO as it seems crucial for unique project identification
+            if 'VALOR DO CONTRATO' in dados_local_custos.columns:
+                 project_group_keys_costs.append('VALOR DO CONTRATO')
+
+            total_custos_incurridos = 0
+            total_custos_correlatos = 0
+
+            if project_group_keys_costs and not dados_local_custos.empty:
+                 # Group by unique project and take the first cost value (assuming it's repeated)
+                 unique_project_costs = dados_local_custos.groupby(project_group_keys_costs, observed=True, dropna=False).agg(
+                     unique_incurridos=('CUSTOS INCORRIDOS', 'first'),
+                     unique_correlatos=('OUTROS CORRELATOS', 'first')
+                 ).reset_index()
+
+                 # Sum the unique costs
+                 total_custos_incurridos = unique_project_costs['unique_incurridos'].sum()
+                 total_custos_correlatos = unique_project_costs['unique_correlatos'].sum()
+
+            custos_labels = ['Custos Incorridos', 'Custos Correlatos']
+            custos_values = [total_custos_incurridos, total_custos_correlatos]
+            color_map = {
+                'Custos Incorridos': '#a1c9f4',
+                'Custos Correlatos': '#a1f4c9'
+            }
+            custos_colors = [color_map[label] for label in custos_labels]
+            
+            def make_autopct(values):
+                def my_autopct(pct):
+                    total = sum(values)
+                    val = pct * total / 100.0
+                    return f'{pct:.1f}%\nR$ {val:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
+                return my_autopct
+            
+            fig_pizza, ax_pizza = plt.subplots(figsize=(2, 2.35))
+            wedges, texts, autotexts = ax_pizza.pie(
+                custos_values,
+                labels=custos_labels,
+                autopct=make_autopct(custos_values),
+                startangle=60,
+                colors=custos_colors,
+                textprops={'fontsize': 5}
+            )
+            plt.legend(custos_labels, fontsize=5, loc='center left', bbox_to_anchor=(1, 0.5))
+            ax_pizza.axis('equal')
+            st.pyplot(fig_pizza, use_container_width=False)
+            
+            # Adicionar análise automática
+            analise_custos = gerar_analise_grafico(custos_values, 'custos')
+            st.markdown(analise_custos, unsafe_allow_html=True)
+            
+        # Gráfico de barras - Distribuição de Valor a Receber por Fundação
+        with row1_col1:
+            st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Valor a Receber por Fundação</h3>", unsafe_allow_html=True)
+            
+            col_date, col_tipo = st.columns(2)
+            
+            with col_date:
+                datas_disponiveis_fundacao = ordenar_datas(data['DATA'].unique())
+                datas_selecionadas_fundacao = st.multiselect(
+                    "Data:", 
+                    datas_disponiveis_fundacao, 
+                    default=st.session_state.graph_filters['fundacao']['datas'],
+                    key="fundacao_data_select",
+                    on_change=update_graph_filter,
+                    args=('fundacao', 'datas', st.session_state.get('fundacao_data_select', []))
+                )
+                st.session_state.graph_filters['fundacao']['datas'] = datas_selecionadas_fundacao
+                
+            with col_tipo:
+                tipos_disponiveis = sorted(data['TIPO'].unique())
+                tipos_selecionados_fund = st.multiselect(
+                    "Tipo de Serviço:", 
+                    tipos_disponiveis, 
+                    default=st.session_state.graph_filters['fundacao']['tipos'],
+                    key="fundacao_tipo_select",
+                    on_change=update_graph_filter,
+                    args=('fundacao', 'tipos', st.session_state.get('fundacao_tipo_select', []))
+                )
+                st.session_state.graph_filters['fundacao']['tipos'] = tipos_selecionados_fund
+                
+            dados_local_fundacao = data.copy()
+            if st.session_state.graph_filters['fundacao']['datas']:
+                dados_local_fundacao = dados_local_fundacao[dados_local_fundacao['DATA'].isin(st.session_state.graph_filters['fundacao']['datas'])]
+            if st.session_state.graph_filters['fundacao']['tipos']:
+                dados_local_fundacao = dados_local_fundacao[dados_local_fundacao['TIPO'].isin(st.session_state.graph_filters['fundacao']['tipos'])]
+            
+            total_a_receber_por_fundacao = dados_local_fundacao.groupby('FUNDAÇÃO')['SALDO A RECEBER'].sum().reset_index()
+            total_a_receber_por_fundacao['SALDO A RECEBER'] = pd.to_numeric(total_a_receber_por_fundacao['SALDO A RECEBER'], errors='coerce')
+            total_a_receber_por_fundacao = total_a_receber_por_fundacao.sort_values(by='SALDO A RECEBER', ascending=False)
+            
+            fig_bar_fundacao, ax_bar_fundacao = plt.subplots(figsize=(3, 2))
+            ax_bar_fundacao.bar(
+                total_a_receber_por_fundacao['FUNDAÇÃO'],
+                total_a_receber_por_fundacao['SALDO A RECEBER'],
+                color=colors_palette[1]
+            )
+            ax_bar_fundacao.set_ylabel('Valor total a receber', fontsize=5)
+            ax_bar_fundacao.set_xlabel('Fundação', fontsize=5)
+            for i, v in enumerate(total_a_receber_por_fundacao['SALDO A RECEBER']):
+                num_val = float(v)
+                ax_bar_fundacao.text(i, num_val + 10000, f'R$ {num_val:,.0f}'.replace(',', '_').replace('.', ',').replace('_', '.'), 
                                     ha='center', va='bottom', fontsize=5)
-                plt.ticklabel_format(axis='y', style='plain')
-                plt.xticks(rotation=0, ha='center', fontsize=5)
-                plt.yticks(fontsize=5)
-                plt.tight_layout()
-                st.pyplot(fig_bar_tipo, use_container_width=False)
+            plt.ticklabel_format(axis='y', style='plain')
+            plt.xticks(rotation=0, ha='center', fontsize=5)
+            plt.yticks(fontsize=5)
+            plt.tight_layout()
+            st.pyplot(fig_bar_fundacao, use_container_width=False)
+            
+            # Adicionar análise automática
+            analise_fundacao = gerar_analise_grafico(total_a_receber_por_fundacao, 'fundacao')
+            st.markdown(analise_fundacao, unsafe_allow_html=True)
+            
+        # Gráfico de barras - Distribuição de Valor a Receber por Tipo de Serviço
+        with row1_col2:
+            st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Valor a Receber por Tipo de Serviço</h3>", unsafe_allow_html=True)
+            
+            col_date, col_fundacao = st.columns(2)
+            
+            with col_date:
+                datas_disponiveis_tipo = ordenar_datas(data['DATA'].unique())
+                datas_selecionadas_tipo = st.multiselect(
+                    "Data:", 
+                    datas_disponiveis_tipo, 
+                    default=st.session_state.graph_filters['tipo']['datas'],
+                    key="tipo_data_select",
+                    on_change=update_graph_filter,
+                    args=('tipo', 'datas', st.session_state.get('tipo_data_select', []))
+                )
+                st.session_state.graph_filters['tipo']['datas'] = datas_selecionadas_tipo
                 
-                # Adicionar análise automática
-                analise_tipo = gerar_analise_grafico(total_a_receber_por_tipo, 'tipo')
-                st.markdown(analise_tipo, unsafe_allow_html=True)
+            with col_fundacao:
+                fundacoes_disponiveis_tipo = sorted(data['FUNDAÇÃO'].unique())
+                fundacoes_selecionadas_tipo = st.multiselect(
+                    "Fundação:", 
+                    fundacoes_disponiveis_tipo, 
+                    default=st.session_state.graph_filters['tipo']['fundacoes'],
+                    key="tipo_fundacao_select",
+                    on_change=update_graph_filter,
+                    args=('tipo', 'fundacoes', st.session_state.get('tipo_fundacao_select', []))
+                )
+                st.session_state.graph_filters['tipo']['fundacoes'] = fundacoes_selecionadas_tipo
                 
-            # Rodapé
-            st.markdown("---")
-            st.markdown("<div style='text-align: center;'>Dashboard Financeiro Versão 1.3 © 2025</div>", unsafe_allow_html=True)
-
-        except Exception as e:
-            st.error(f"Erro ao gerar a seção de Análise Gráfica: {e}")
-            st.warning("Verifique se os dados foram carregados corretamente e se as colunas necessárias existem.")
-            # Optionally show more details for debugging
-            if st.checkbox("Mostrar detalhes técnicos do erro gráfico"):
-                import traceback
-                st.code(traceback.format_exc())
+            dados_local_tipo = data.copy()
+            if st.session_state.graph_filters['tipo']['datas']:
+                dados_local_tipo = dados_local_tipo[dados_local_tipo['DATA'].isin(st.session_state.graph_filters['tipo']['datas'])]
+            if st.session_state.graph_filters['tipo']['fundacoes']:
+                dados_local_tipo = dados_local_tipo[dados_local_tipo['FUNDAÇÃO'].isin(st.session_state.graph_filters['tipo']['fundacoes'])]
+            
+            total_a_receber_por_tipo = dados_local_tipo.groupby('TIPO')['SALDO A RECEBER'].sum().reset_index()
+            total_a_receber_por_tipo['SALDO A RECEBER'] = pd.to_numeric(total_a_receber_por_tipo['SALDO A RECEBER'], errors='coerce')
+            total_a_receber_por_tipo = total_a_receber_por_tipo.sort_values(by='SALDO A RECEBER', ascending=False)
+            
+            fig_bar_tipo, ax_bar_tipo = plt.subplots(figsize=(3, 2))
+            ax_bar_tipo.bar(
+                total_a_receber_por_tipo['TIPO'],
+                total_a_receber_por_tipo['SALDO A RECEBER'],
+                color=colors_palette[0]
+            )
+            ax_bar_tipo.set_ylabel('Valor total a receber', fontsize=5)
+            ax_bar_tipo.set_xlabel('Tipo de Serviço', fontsize=5)
+            for i, v in enumerate(total_a_receber_por_tipo['SALDO A RECEBER']):
+                num_val = float(v)
+                ax_bar_tipo.text(i, num_val + 10000, f'R$ {num_val:,.0f}'.replace(',', '_').replace('.', ',').replace('_', '.'), 
+                                ha='center', va='bottom', fontsize=5)
+            plt.ticklabel_format(axis='y', style='plain')
+            plt.xticks(rotation=0, ha='center', fontsize=5)
+            plt.yticks(fontsize=5)
+            plt.tight_layout()
+            st.pyplot(fig_bar_tipo, use_container_width=False)
+            
+            # Adicionar análise automática
+            analise_tipo = gerar_analise_grafico(total_a_receber_por_tipo, 'tipo')
+            st.markdown(analise_tipo, unsafe_allow_html=True)
+            
+        # Rodapé
+        st.markdown("---")
+        st.markdown("<div style='text-align: center;'>Dashboard Financeiro Versão 1.3 © 2025</div>", unsafe_allow_html=True)
 
 try:
     # Tente executar o dashboard
