@@ -1630,15 +1630,15 @@ if st.session_state["authentication_status"]:
         
         # Store display state in session_state to prevent refreshes when other widgets are used
         if show_table_filtrado:
-            st.session_state.show_table = True
+            st.session_state.show_main_table = True
         
-        # Check if 'show_table' exists in session state
-        if 'show_table' not in st.session_state:
-            st.session_state.show_table = False
+        # Check if 'show_main_table' exists in session state
+        if 'show_main_table' not in st.session_state:
+            st.session_state.show_main_table = False
             
         # If "Limpar" button is pressed in another section, reset this display too
         if clear_filters:
-            st.session_state.show_table = False
+            st.session_state.show_main_table = False
 
         # --- Prepare DataFrame for DISPLAY ONLY (Applying the 'A definir' grouping) ---
         df_processed_for_display = pd.DataFrame() # Initialize empty
@@ -1672,7 +1672,7 @@ if st.session_state["authentication_status"]:
         # --- Display filtered spreadsheet table conditionally ---
         # 4. Display table conditionally based on the "Mostrar" button
         # Use df_processed_for_display for the table content
-        if st.session_state.show_table and not df_processed_for_display.empty: # Check if there's data to display
+        if st.session_state.show_main_table and not df_processed_for_display.empty: # Check if there's data to display
             st.markdown("<h3 style='font-size:140%;'>Planilha de Contas a Receber - Tratada/Higienizada</h3>", unsafe_allow_html=True)
             st.info(
                 """
@@ -1800,8 +1800,8 @@ if st.session_state["authentication_status"]:
             """.format(num_projetos_display, num_linhas_display), unsafe_allow_html=True)
             
             # Add a button to close the table
-            if st.button("Fechar Tabela", key="btn_fechar_tabela"):
-                st.session_state.show_table = False
+            if st.button("Fechar Tabela", key="btn_fechar_main_table"):
+                st.session_state.show_main_table = False
                 st.rerun()  # Force rerun to hide the table
                     
 
@@ -2140,8 +2140,8 @@ if st.session_state["authentication_status"]:
                         )
 
                         # Add a button to close the table
-                        if st.button("Fechar Tabela", key="btn_fechar_tabela"):
-                            st.session_state.show_table = False
+                        if st.button("Fechar Tabela", key="btn_fechar_atrasos_table"):
+                            st.session_state.show_atrasos_table = False
                             st.rerun()  # Force rerun to hide the table
 
                         # --- Removed Download Button Logic from here --- #
@@ -2553,7 +2553,7 @@ if st.session_state["authentication_status"]:
                 )
                 
                 # Add a button to close the table
-                if st.button("Fechar Tabela", key="btn_fechar_desvio"):
+                if st.button("Fechar Tabela", key="btn_fechar_desvio_table"):
                     st.session_state.show_desvio_table = False
                     st.rerun()  # Force rerun to hide the table
             # --- End Desvio de Proporção Section Logic ---
