@@ -1613,8 +1613,10 @@ if st.session_state["authentication_status"]:
         st.sidebar.write('Total a Receber:', total_a_receber_formatado)
 
         # --- Display total value BEFORE buttons and table ---
-        st.subheader('Valor Total a Receber pela Empresa:')
-        st.write(f'<p style="font-size:40px">{total_a_receber_formatado}</p>', unsafe_allow_html=True)
+        # Evitar mostrar o valor total aqui se for um caso de apenas datas selecionadas (será mostrado após o recálculo)
+        if not (st.session_state.meses and all(m != 'A definir' for m in st.session_state.meses)):
+            st.subheader('Valor Total a Receber pela Empresa:')
+            st.write(f'<p style="font-size:40px">{total_a_receber_formatado}</p>', unsafe_allow_html=True)
 
         # --- Buttons for filtered spreadsheet ---
         # 2. Place Download button directly (uses excel_buffer_filtrado with all rows)
@@ -1663,6 +1665,15 @@ if st.session_state["authentication_status"]:
                 else:
                      # Fallback sort if ID PROJETO_NUM was lost or not generated
                      df_processed_for_display = df_processed_for_display.sort_index()
+                
+                # CORREÇÃO: Recalcular o total quando houver apenas datas selecionadas
+                if st.session_state.meses and all(m != 'A definir' for m in st.session_state.meses) and 'SALDO A RECEBER PREVISTO ATÉ A DATA FILTRADA' in df_processed_for_display.columns:
+                    # Se tivermos apenas filtros de data (sem "A definir"), recalcular o total baseado nos dados processados
+                    total_a_receber_display = df_processed_for_display['SALDO A RECEBER PREVISTO ATÉ A DATA FILTRADA'].sum()
+                    # Atualizar e exibir o valor correto
+                    total_a_receber_formatado = f'R$ {total_a_receber_display:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
+                    st.subheader('Valor Total a Receber pela Empresa:')
+                    st.write(f'<p style="font-size:40px">{total_a_receber_formatado}</p>', unsafe_allow_html=True)
             else:
                  print("Warning: 'PREVISÃO DE DATA DE RECEBIMENTO' or 'INTERNAL_PROJECT_ID' missing. Displaying original filtered data.")
                  df_processed_for_display = df_exibir_final_contas.copy() # Fallback to original if columns missing
