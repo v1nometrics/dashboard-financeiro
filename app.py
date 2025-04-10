@@ -667,195 +667,142 @@ if st.session_state["authentication_status"]:
     # ---------------------------------------------------
     @st.cache_data
     def carregar_dados_desvio():
-        xls = pd.ExcelFile(arquivo)
-        paginas_processar = [
-            pagina for pagina in xls.sheet_names 
-            if pagina.strip().upper() not in ["GERAL_PROJETOS_FADEX", "TEDS SEM CONTRATO"]
-        ]
+        try:
+            xls = pd.ExcelFile(arquivo)
+            # Garantir que os nomes das páginas sejam strings e fazer log
+            paginas_processar = [
+                str(pagina).strip() 
+                for pagina in xls.sheet_names 
+                if str(pagina).strip().upper() not in ["GERAL_PROJETOS_FADEX", "TEDS SEM CONTRATO"]
+            ]
+            print(f"Páginas a processar: {paginas_processar}")
 
-        lista_dfs = []
-        cols_interesse = [
-            'QUANT.', 'CLIENTE', 'PROJETO', 'NOMENCLATURA DO PROJETO', 'Nº TED',
-            'SECRETARIA', 'CONTRATO', # Added CONTRATO
-            'VALOR DO CONTRATO', 'PREVISÃO DE VALOR DE RECEBIMENTO',
-            'PREVISÃO DE DATA DE RECEBIMENTO', 'REPASSE RECEBIDO', 'DATA DE RECEBIMENTO', 'CUSTOS INCORRIDOS', 'VALOR',
-            'OUTROS CORRELATOS', 'VALOR2', 'SALDO A RECEBER', 'SALDO A RECEBER DO CONTRATO'
-        ]
+            lista_dfs = []
+            cols_interesse = [
+                'QUANT.', 'CLIENTE', 'PROJETO', 'NOMENCLATURA DO PROJETO', 'Nº TED',
+                'SECRETARIA', 'CONTRATO',
+                'VALOR DO CONTRATO', 'PREVISÃO DE VALOR DE RECEBIMENTO',
+                'PREVISÃO DE DATA DE RECEBIMENTO', 'REPASSE RECEBIDO', 'DATA DE RECEBIMENTO', 'CUSTOS INCORRIDOS', 'VALOR',
+                'OUTROS CORRELATOS', 'VALOR2', 'SALDO A RECEBER', 'SALDO A RECEBER DO CONTRATO'
+            ]
 
-        all_columns_found = True # Flag to track if all interest columns are present across sheets
+            all_columns_found = True
 
-        for pagina in paginas_processar:
-            try:
-                df = pd.read_excel(arquivo, sheet_name=pagina, skiprows=3)
-                df.columns = df.columns.str.strip().str.upper().str.replace("  ", " ")
+            for pagina in paginas_processar:
+                try:
+                    print(f"Processando página: '{pagina}' (tipo: {type(pagina)})")
+                    df = pd.read_excel(arquivo, sheet_name=pagina, skiprows=3)
+                    df.columns = df.columns.str.strip().str.upper().str.replace("  ", " ")
 
-                # Check for missing essential columns for *this specific sheet*
-                missing_essential = [col for col in ['QUANT.', 'CLIENTE', 'PROJETO', 'VALOR DO CONTRATO'] if col not in df.columns]
-                if missing_essential:
-                     print(f"Aviso: Pulando página '{pagina}' devido à falta de colunas essenciais: {', '.join(missing_essential)}")
-                     continue # Skip this sheet if essential columns for ID are missing
+                    # Check for missing essential columns for *this specific sheet*
+                    missing_essential = [col for col in ['QUANT.', 'CLIENTE', 'PROJETO', 'VALOR DO CONTRATO'] if col not in df.columns]
+                    if missing_essential:
+                        print(f"Aviso: Pulando página '{pagina}' devido à falta de colunas essenciais: {', '.join(missing_essential)}")
+                        continue
 
-                # Check which of the interest columns are actually present
-                present_cols = [col for col in cols_interesse if col in df.columns]
-                missing_in_sheet = [col for col in cols_interesse if col not in df.columns]
-                if missing_in_sheet:
-                     print(f"Aviso: Página '{pagina}' não possui as colunas: {', '.join(missing_in_sheet)}. Serão preenchidas com NA.")
-                     # Add missing columns with NA to ensure consistency
-                     for col in missing_in_sheet:
-                         df[col] = pd.NA
+                    # Check which of the interest columns are actually present
+                    present_cols = [col for col in cols_interesse if col in df.columns]
+                    missing_in_sheet = [col for col in cols_interesse if col not in df.columns]
+                    if missing_in_sheet:
+                        print(f"Aviso: Página '{pagina}' não possui as colunas: {', '.join(missing_in_sheet)}. Serão preenchidas com NA.")
+                        for col in missing_in_sheet:
+                            df[col] = pd.NA
 
-                df = df[present_cols + missing_in_sheet] # Select present and add missing ones
+                    df = df[present_cols + missing_in_sheet]
+                    df = df.replace(r'^\s*$', pd.NA, regex=True)
 
-                df = df.replace(r'^\s*$', pd.NA, regex=True)
-
-                # Ensure QUANT. exists and filter based on it
-                if 'QUANT.' in df.columns:
-                     df = df.dropna(subset=["QUANT."])
-                else:
-                     # If QUANT. is missing entirely, we can't filter by it, proceed with caution
-                     print(f"Aviso: Coluna 'QUANT.' não encontrada na página '{pagina}'. Não foi possível filtrar por ela.")
-
-
-                # Define numeric columns dynamically based on what's available
-                numeric_cols_to_clean = [
-                    "VALOR DO CONTRATO", "REPASSE RECEBIDO", "PREVISÃO DE VALOR DE RECEBIMENTO",
-                    "CUSTOS INCORRIDOS", "VALOR", "OUTROS CORRELATOS", "VALOR2",
-                    "SALDO A RECEBER", "SALDO A RECEBER DO CONTRATO"
-                ]
-                for col in numeric_cols_to_clean:
-                    if col in df.columns: # Clean only if column exists
-                        df[col] = df[col].fillna(0).apply(clean_numeric)
+                    if 'QUANT.' in df.columns:
+                        df = df.dropna(subset=["QUANT."])
                     else:
-                        df[col] = 0 # Set default 0 if column was missing
+                        print(f"Aviso: Coluna 'QUANT.' não encontrada na página '{pagina}'. Não foi possível filtrar por ela.")
 
-                # Extrair fundação da página
-                def extrair_fundacao(pagina):
-                    if pagina.upper() == 'FUNCERN':
-                        return 'FUNCERN'
-                    elif 'FAPTO' in pagina.upper():
-                        return 'FAPTO'
-                    padrao = r'\((.*?)\)'
-                    resultado = re.search(padrao, pagina)
-                    if resultado:
-                        return resultado.group(1).strip()
-                    return pagina
+                    numeric_cols_to_clean = [
+                        "VALOR DO CONTRATO", "REPASSE RECEBIDO", "PREVISÃO DE VALOR DE RECEBIMENTO",
+                        "CUSTOS INCORRIDOS", "VALOR", "OUTROS CORRELATOS", "VALOR2",
+                        "SALDO A RECEBER", "SALDO A RECEBER DO CONTRATO"
+                    ]
+                    for col in numeric_cols_to_clean:
+                        if col in df.columns:
+                            df[col] = df[col].fillna(0).apply(clean_numeric)
+                        else:
+                            df[col] = 0
 
-                df['FUNDAÇÃO'] = extrair_fundacao(pagina)
-                df['PÁGINA'] = pagina
+                    # Função atualizada para extrair fundação
+                    def extrair_fundacao(pagina_nome):
+                        # Garantir que a página seja uma string
+                        pagina_nome = str(pagina_nome).strip()
+                        print(f"Extraindo fundação da página: '{pagina_nome}'")
+                        
+                        if pagina_nome.upper() == 'FUNCERN':
+                            return 'FUNCERN'
+                        elif 'FAPTO' in pagina_nome.upper():
+                            return 'FAPTO'
+                        
+                        # Procurar por texto entre parênteses
+                        padrao = r'\((.*?)\)'
+                        resultado = re.search(padrao, pagina_nome)
+                        if resultado:
+                            fundacao = resultado.group(1).strip()
+                            print(f"Fundação extraída: '{fundacao}'")
+                            return fundacao
+                        
+                        print(f"Nenhum padrão encontrado, retornando página original: '{pagina_nome}'")
+                        return pagina_nome
 
-                # Determinar o tipo com base na página ou no projeto
-                df['TIPO'] = 'Projeto'
-                if 'PROJETO' in df.columns: # Check if PROJETO column exists
-                    produtos_mask = (
-                        (pagina.upper() == 'PRODUTOS') |
-                        ('PRODUTO' in pagina.upper()) |
-                        (pagina == 'Produtos (FADEX)') |
-                        (df['PROJETO'].astype(str).str.upper().str.contains('PRODUTO', na=False)) # Convert to string before .str
-                    )
-                    df.loc[produtos_mask, 'TIPO'] = 'Produto'
-                else:
-                    # Handle case where PROJETO column might be missing
-                     print(f"Aviso: Coluna 'PROJETO' não encontrada na página '{pagina}'. Tipo padrão 'Projeto' será usado.")
+                    # Atribuir fundação e página como strings
+                    df['FUNDAÇÃO'] = extrair_fundacao(str(pagina))
+                    df['PÁGINA'] = str(pagina)
 
-                # Formatar datas if column exists
-                if 'PREVISÃO DE DATA DE RECEBIMENTO' in df.columns:
-                    df['PREVISÃO DE DATA DE RECEBIMENTO'] = pd.to_datetime(
-                        df['PREVISÃO DE DATA DE RECEBIMENTO'], errors='coerce' # More flexible parsing initially
-                    )
-                    # Only format valid dates, keep NaT otherwise, then fillna
-                    df['PREVISÃO DE DATA DE RECEBIMENTO'] = df['PREVISÃO DE DATA DE RECEBIMENTO'].dt.strftime('%m/%Y').fillna('A definir')
-                else:
-                     df['PREVISÃO DE DATA DE RECEBIMENTO'] = 'A definir' # Default if column missing
+                    # Garantir que FUNDAÇÃO seja string
+                    df['FUNDAÇÃO'] = df['FUNDAÇÃO'].astype(str)
 
+                    # Determinar o tipo com base na página ou no projeto
+                    df['TIPO'] = 'Projeto'
+                    if 'PROJETO' in df.columns:
+                        df['PROJETO'] = df['PROJETO'].astype(str)  # Converter para string antes de usar str.contains
+                        produtos_mask = (
+                            (pagina.upper() == 'PRODUTOS') |
+                            ('PRODUTO' in pagina.upper()) |
+                            (pagina == 'Produtos (FADEX)') |
+                            (df['PROJETO'].str.upper().str.contains('PRODUTO', na=False))
+                        )
+                        df.loc[produtos_mask, 'TIPO'] = 'Produto'
+                    else:
+                        print(f"Aviso: Coluna 'PROJETO' não encontrada na página '{pagina}'. Tipo padrão 'Projeto' será usado.")
 
-                # Limpar valores do cliente if column exists
-                if 'CLIENTE' in df.columns:
-                     df['CLIENTE'] = df['CLIENTE'].astype(str).replace({'': 'Não identificado', 'nan': 'Não identificado'}).fillna('Não identificado') # Ensure string type and handle nan/None
-                else:
-                     df['CLIENTE'] = 'Não identificado' # Default if column missing
+                    # Formatar datas
+                    if 'PREVISÃO DE DATA DE RECEBIMENTO' in df.columns:
+                        df['PREVISÃO DE DATA DE RECEBIMENTO'] = pd.to_datetime(
+                            df['PREVISÃO DE DATA DE RECEBIMENTO'], errors='coerce'
+                        )
+                        df['PREVISÃO DE DATA DE RECEBIMENTO'] = df['PREVISÃO DE DATA DE RECEBIMENTO'].dt.strftime('%m/%Y').fillna('A definir')
+                    else:
+                        df['PREVISÃO DE DATA DE RECEBIMENTO'] = 'A definir'
 
-                lista_dfs.append(df)
+                    # Limpar valores do cliente
+                    if 'CLIENTE' in df.columns:
+                        df['CLIENTE'] = df['CLIENTE'].astype(str).replace({'': 'Não identificado', 'nan': 'Não identificado'}).fillna('Não identificado')
+                    else:
+                        df['CLIENTE'] = 'Não identificado'
 
-            except Exception as e:
-                st.error(f"Erro ao processar a página '{pagina}': {e}")
-                # Optionally continue to next sheet or stop
-                continue # Continue processing other sheets
+                    lista_dfs.append(df)
+                    print(f"Página '{pagina}' processada com sucesso.")
 
-        if lista_dfs:
-            df_consolidado = pd.concat(lista_dfs, ignore_index=True)
+                except Exception as e:
+                    print(f"Erro ao processar a página '{pagina}': {str(e)}")
+                    continue
 
-            # --- Create PROJETO_ID_KEY using available columns ---
-            key_cols = []
-            if 'QUANT.' in df_consolidado.columns:
-                 key_cols.append('QUANT.')
+            if lista_dfs:
+                df_consolidado = pd.concat(lista_dfs, ignore_index=True)
+                print("Dados consolidados com sucesso.")
+                return df_consolidado
             else:
-                 print("Aviso: Coluna 'QUANT.' não encontrada para criar PROJETO_ID_KEY.")
-            if 'CLIENTE' in df_consolidado.columns:
-                 key_cols.append('CLIENTE')
-            else:
-                 print("Aviso: Coluna 'CLIENTE' não encontrada para criar PROJETO_ID_KEY.")
-            if 'VALOR DO CONTRATO' in df_consolidado.columns:
-                 key_cols.append('VALOR DO CONTRATO')
-            else:
-                 print("Aviso: Coluna 'VALOR DO CONTRATO' não encontrada para criar PROJETO_ID_KEY.")
-
-            if len(key_cols) >= 2: # Require at least two keys for a reasonable identifier
-                 df_consolidado['PROJETO_ID_KEY'] = df_consolidado.apply(
-                     lambda row: '_'.join(str(row[col]).strip() for col in key_cols),
-                     axis=1
-                 )
-                 print(f"Info: PROJETO_ID_KEY criado usando colunas: {key_cols}")
-            else:
-                 # Fallback: Create a less specific key or handle error
-                 print("Erro Crítico: Não foi possível criar um PROJETO_ID_KEY confiável devido à falta de colunas ('CLIENTE', 'VALOR DO CONTRATO'). Usando índice como fallback.")
-                 df_consolidado['PROJETO_ID_KEY'] = df_consolidado.index.astype(str) + "_fallback"
-            # --- End PROJETO_ID_KEY Creation ---
-
-
-            # Garantir que a coluna PÁGINA existe para evitar KeyError na seção de desvio
-            if 'PÁGINA' not in df_consolidado.columns:
-                # Try to derive from FUNDAÇÃO if it exists
-                if 'FUNDAÇÃO' in df_consolidado.columns:
-                     df_consolidado['PÁGINA'] = df_consolidado['FUNDAÇÃO'].astype(str)
-                else:
-                     df_consolidado['PÁGINA'] = "Página Desconhecida" # Fallback
-
-            # Replace any remaining NaN/NaT/None in object columns with "—" before returning
-            for col in df_consolidado.select_dtypes(include='object').columns:
-                 df_consolidado[col] = df_consolidado[col].fillna("—")
-
-            # Ensure numeric columns used later are present, default to 0 if not
-            final_numeric_check = ['VALOR DO CONTRATO', 'REPASSE RECEBIDO', 'CUSTOS INCORRIDOS', 'VALOR', 'OUTROS CORRELATOS', 'VALOR2', 'SALDO A RECEBER', 'SALDO A RECEBER DO CONTRATO', 'PREVISÃO DE VALOR DE RECEBIMENTO']
-            for col in final_numeric_check:
-                if col not in df_consolidado.columns:
-                     df_consolidado[col] = 0
-                else:
-                     # Ensure they are numeric, coercing errors to NaN then filling with 0
-                     df_consolidado[col] = pd.to_numeric(df_consolidado[col], errors='coerce').fillna(0)
-
-
-            # Add Project ID for Deviation section grouping (uses more columns)
-            # Make sure these columns exist before using them
-            factorize_cols = []
-            if 'QUANT.' in df_consolidado.columns: factorize_cols.append('QUANT.')
-            if 'CLIENTE' in df_consolidado.columns: factorize_cols.append('CLIENTE')
-            if 'PROJETO' in df_consolidado.columns: factorize_cols.append('PROJETO')
-
-            if len(factorize_cols) >= 2: # Need at least client and project for a meaningful ID
-                df_consolidado['PROJECT ID'] = pd.factorize(
-                    df_consolidado[factorize_cols].apply(lambda row: '_'.join(row.astype(str)), axis=1)
-                )[0] + 1
-            else:
-                print("Warning: Could not create reliable 'PROJECT ID' for deviation due to missing columns. Using index.")
-                df_consolidado['PROJECT ID'] = df_consolidado.index + 1
-
-            return df_consolidado
-        else:
-            st.warning("Nenhuma página válida encontrada ou processada. Verifique o arquivo Excel e os nomes das abas.")
-            # Return DataFrame vazio com as colunas esperadas para evitar erros posteriores
-            # Include the key column as well
-            empty_cols = cols_interesse + ['FUNDAÇÃO', 'PÁGINA', 'TIPO', 'PROJETO_ID_KEY', 'PROJECT ID']
-            return pd.DataFrame(columns=empty_cols)
+                print("Nenhuma página válida encontrada ou processada.")
+                empty_cols = cols_interesse + ['FUNDAÇÃO', 'PÁGINA', 'TIPO', 'PROJETO_ID_KEY', 'PROJECT ID']
+                return pd.DataFrame(columns=empty_cols)
+        except Exception as e:
+            print(f"Erro geral no carregamento de dados: {str(e)}")
+            raise e
 
     # ---------------------------------------------------
     # Função para carregar dados processados para o dashboard (com tratamento para saldo a receber)
