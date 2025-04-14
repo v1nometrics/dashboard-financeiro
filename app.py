@@ -1560,63 +1560,25 @@ if st.session_state["authentication_status"]:
         )
 
         # --- Calculate total value BEFORE displaying the table ---
-        if st.session_state.meses:
-            # When month filter is active, sum the predicted values
-            if 'A definir' in st.session_state.meses:
-                # Check if required columns exist before grouping
-                group_cols_total = ['QUANT.', 'CLIENTE', 'PROJETO']
-                if all(col in df_exibir_final_contas.columns for col in group_cols_total):
-                    # Para linhas com "A definir", usar o SALDO A RECEBER diretamente e evitar redundância
-                    df_a_definir_total = df_exibir_final_contas[df_exibir_final_contas['PREVISÃO DE DATA DE RECEBIMENTO'] == 'A definir']
-                    # Agrupar por projeto para evitar redundância
-                    df_a_definir_grouped_total = df_a_definir_total.groupby(group_cols_total)['SALDO A RECEBER'].first().reset_index()
-                    total_a_definir = df_a_definir_grouped_total['SALDO A RECEBER'].sum()
-                else:
-                    print("Warning: Columns for grouping total 'A definir' not found. Calculation might be inaccurate.")
-                    total_a_definir = df_exibir_final_contas.loc[df_exibir_final_contas['PREVISÃO DE DATA DE RECEBIMENTO'] == 'A definir', 'SALDO A RECEBER'].sum() # Fallback
-
-                # Para linhas com data definida, usar o cálculo normal
-                df_com_data_total = df_exibir_final_contas[df_exibir_final_contas['PREVISÃO DE DATA DE RECEBIMENTO'] != 'A definir']
-                selected_months_without_a_definir = [m for m in st.session_state.meses if m != 'A definir']
-                if selected_months_without_a_definir:
-                    df_com_data_total = df_com_data_total[df_com_data_total['PREVISÃO DE DATA DE RECEBIMENTO'].isin(selected_months_without_a_definir)]
-                    total_com_data = df_com_data_total['SALDO A RECEBER PREVISTO ATÉ A DATA FILTRADA'].sum()
-                else:
-                    total_com_data = 0
-
-                total_a_receber_display = total_a_definir + total_com_data
-            else:
-                # When no month filter is selected but we're inside st.session_state.meses check
-                # (this means there might be other filters like type, foundation, etc.)
-                # Check if required columns exist before grouping
-                group_cols_total_no_filter = ['QUANT.', 'CLIENTE', 'PROJETO']
-                if all(col in filtered_data.columns for col in group_cols_total_no_filter):
-                    # Agrupar por projeto para evitar redundância de linhas com "A definir"
-                    df_grouped_total = filtered_data.groupby(group_cols_total_no_filter)['SALDO A RECEBER'].first().reset_index()
-                    total_a_receber_display = df_grouped_total['SALDO A RECEBER'].sum()
-                else:
-                    print("Warning: Columns for grouping total (no filter) not found. Calculation might be inaccurate.")
-                    total_a_receber_display = filtered_data['SALDO A RECEBER'].sum() # Fallback
+        # Initial calculation based on filtered_data (covers no-filter/'A definir' cases)
+        group_cols_total_initial = ['QUANT.', 'CLIENTE', 'PROJETO']
+        if all(col in filtered_data.columns for col in group_cols_total_initial):
+            # Group by project to avoid double counting SALDO A RECEBER when multiple rows exist per project
+            df_grouped_total_initial = filtered_data.groupby(group_cols_total_initial)['SALDO A RECEBER'].first().reset_index()
+            total_a_receber_display_initial = df_grouped_total_initial['SALDO A RECEBER'].sum()
         else:
-            # When no filters are selected at all - show the complete total
-            group_cols_total_no_filter = ['QUANT.', 'CLIENTE', 'PROJETO']
-            if all(col in filtered_data.columns for col in group_cols_total_no_filter):
-                # Agrupar por projeto para evitar redundância de linhas com "A definir"
-                df_grouped_total = filtered_data.groupby(group_cols_total_no_filter)['SALDO A RECEBER'].first().reset_index()
-                total_a_receber_display = df_grouped_total['SALDO A RECEBER'].sum()
-            else:
-                print("Warning: Columns for grouping total (no filter) not found. Calculation might be inaccurate.")
-                total_a_receber_display = filtered_data['SALDO A RECEBER'].sum() # Fallback
+            print("Warning: Columns for grouping initial total not found. Calculation might be inaccurate.")
+            # Fallback: Sum directly, might overcount if project rows are duplicated in filtered_data
+            total_a_receber_display_initial = filtered_data['SALDO A RECEBER'].sum() if 'SALDO A RECEBER' in filtered_data.columns else 0
 
-        # Format the total value - this happens regardless of filters
-        total_a_receber_formatado = f'R$ {total_a_receber_display:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
-        st.sidebar.write('Total a Receber:', total_a_receber_formatado)
+        total_a_receber_formatado_initial = f'R$ {total_a_receber_display_initial:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
+        st.sidebar.write('Total a Receber (Filtros Aplicados):', total_a_receber_formatado_initial) # Keep sidebar updated
 
-        # --- Display total value BEFORE buttons and table ---
-        # Evitar mostrar o valor total aqui se for um caso de apenas datas selecionadas (será mostrado após o recálculo)
-        if not (st.session_state.meses and all(m != 'A definir' for m in st.session_state.meses)):
-            st.subheader('Valor Total a Receber pela Empresa:')
-            st.write(f'<p style="font-size:40px">{total_a_receber_formatado}</p>', unsafe_allow_html=True)
+        # --- Display total value section BEFORE buttons ---
+        st.subheader('Valor Total a Receber pela Empresa:')
+        # Use a container or placeholder to update the value later if needed
+        total_value_placeholder = st.empty()
+        total_value_placeholder.write(f'<p style="font-size:40px">{total_a_receber_formatado_initial}</p>', unsafe_allow_html=True)
 
         # --- Buttons for filtered spreadsheet ---
         # 2. Place Download button directly (uses excel_buffer_filtrado with all rows)
@@ -1666,19 +1628,31 @@ if st.session_state["authentication_status"]:
                      # Fallback sort if ID PROJETO_NUM was lost or not generated
                      df_processed_for_display = df_processed_for_display.sort_index()
                 
-                # CORREÇÃO: Recalcular o total quando houver apenas datas selecionadas
-                if st.session_state.meses and all(m != 'A definir' for m in st.session_state.meses) and 'SALDO A RECEBER PREVISTO ATÉ A DATA FILTRADA' in df_processed_for_display.columns:
-                    # Se tivermos apenas filtros de data (sem "A definir"), recalcular o total baseado nos dados processados
-                    total_a_receber_display = df_processed_for_display['SALDO A RECEBER PREVISTO ATÉ A DATA FILTRADA'].sum()
-                    # Atualizar e exibir o valor correto
-                    total_a_receber_formatado = f'R$ {total_a_receber_display:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
-                    st.subheader('Valor Total a Receber pela Empresa:')
-                    st.write(f'<p style="font-size:40px">{total_a_receber_formatado}</p>', unsafe_allow_html=True)
+                # CORREÇÃO: Recalcular o total quando houver apenas datas selecionadas (Moved to update placeholder)
+                # if st.session_state.meses and all(m != 'A definir' for m in st.session_state.meses) and 'SALDO A RECEBER PREVISTO ATÉ A DATA FILTRADA' in df_processed_for_display.columns:
+                #     # Se tivermos apenas filtros de data (sem "A definir"), recalcular o total baseado nos dados processados
+                #     total_a_receber_display = df_processed_for_display['SALDO A RECEBER PREVISTO ATÉ A DATA FILTRADA'].sum()
+                #     # Atualizar e exibir o valor correto
+                #     total_a_receber_formatado = f'R$ {total_a_receber_display:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
+                #     st.subheader('Valor Total a Receber pela Empresa:') # This display is removed
+                #     st.write(f'<p style="font-size:40px">{total_a_receber_formatado}</p>', unsafe_allow_html=True) # This display is removed
             else:
                  print("Warning: 'PREVISÃO DE DATA DE RECEBIMENTO' or 'INTERNAL_PROJECT_ID' missing. Displaying original filtered data.")
                  df_processed_for_display = df_exibir_final_contas.copy() # Fallback to original if columns missing
         # --- End Preparation for Display ---
 
+
+        # --- Re-calculate and update total value if ONLY date filters are applied ---
+        only_date_filter_applied = st.session_state.meses and all(m != 'A definir' for m in st.session_state.meses)
+        if only_date_filter_applied and 'SALDO A RECEBER PREVISTO ATÉ A DATA FILTRADA' in df_processed_for_display.columns:
+            # Se tivermos apenas filtros de data (sem "A definir"), recalcular o total baseado nos dados processados
+            total_a_receber_recalculated = df_processed_for_display['SALDO A RECEBER PREVISTO ATÉ A DATA FILTRADA'].sum()
+            # Atualizar e exibir o valor correto no placeholder
+            total_a_receber_formatado_recalculated = f'R$ {total_a_receber_recalculated:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
+            total_value_placeholder.write(f'<p style="font-size:40px">{total_a_receber_formatado_recalculated}</p>', unsafe_allow_html=True)
+            # Optionally update sidebar as well if needed
+            st.sidebar.write('Total a Receber (Filtros Aplicados):', total_a_receber_formatado_recalculated) # Update sidebar too
+        # --- End Re-calculation ---
 
         # --- Display filtered spreadsheet table conditionally ---
         # 4. Display table conditionally based on the "Mostrar" button
