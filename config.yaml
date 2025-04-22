@@ -15,6 +15,11 @@ credentials:
       logged_in: False
       name: "Epitacio Brito"
       password: "admin"
+    greg:
+      email: "gregory.gentle@innovatismc.com"
+      logged_in: False
+      name: "Gregory Gentle"
+      password: "admin"
 cookie:
   expiry_days: 30
   key: "some_signature_key"
