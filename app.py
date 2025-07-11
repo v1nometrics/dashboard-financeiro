@@ -867,7 +867,7 @@ if st.session_state["authentication_status"]:
         
         # Criar chave única para cada projeto para tratar o saldo a receber
         df_base['PROJETO KEY'] = df_base.apply(
-            lambda row: f"{str(row['QUANT.']).strip()}_{str(row['CLIENTE']).strip()}_{str(row['VALOR DO CONTRATO']).strip()}", 
+            lambda row: f"{str(row['PÁGINA']).strip()}_{str(row['QUANT.']).strip()}", 
             axis=1
         )
         
@@ -1105,8 +1105,26 @@ if st.session_state["authentication_status"]:
     
     # Função auxiliar para ordenar meses no formato MM/AAAA
     def ordenar_datas(datas):
+        # Obter o mês atual para comparação
+        hoje = datetime.datetime.now()
+        mes_atual_dt = datetime.datetime(hoje.year, hoje.month, 1)
+        
         # Filtrar apenas datas válidas (no formato MM/AAAA) e não nulas/NA
-        datas_validas = [d for d in datas if pd.notna(d) and d != 'A definir' and re.match(r'^\d{2}/\d{4}$', str(d))]
+        datas_validas = []
+        for d in datas:
+            # Pular "A definir"
+            if pd.notna(d) and d != 'A definir' and re.match(r'^\d{2}/\d{4}$', str(d)):
+                # Converter para objeto datetime para comparação
+                try:
+                    mes, ano = map(int, str(d).split('/'))
+                    data_dt = datetime.datetime(ano, mes, 1)
+                    # Incluir apenas datas futuras (>= mês atual)
+                    if data_dt >= mes_atual_dt:
+                        datas_validas.append(d)
+                except (ValueError, TypeError):
+                    # Ignorar datas inválidas
+                    pass
+                    
         if not datas_validas:
             return ['A definir'] if 'A definir' in datas else []
 
@@ -1120,10 +1138,10 @@ if st.session_state["authentication_status"]:
             print(f"Erro ao ordenar datas: {e}. Datas: {datas_validas}")
             datas_ordenadas = sorted(datas_validas) # Fallback to string sort
 
-        # Adicionar 'A definir' ao final, se existir na lista original 'datas'
+        # Adicionar 'A definir' ao INÍCIO da lista, se existir na lista original 'datas'
         original_datas_set = set(datas) # Use set for faster lookup
         if 'A definir' in original_datas_set:
-            datas_ordenadas.append('A definir')
+            datas_ordenadas = ['A definir'] + datas_ordenadas
         return datas_ordenadas
 
     # --- Use df_desvio for filter options ---
@@ -1797,20 +1815,79 @@ if st.session_state["authentication_status"]:
         st.markdown("---")
         st.subheader("Repasses em Atraso ⚠️")
         
-        # Obter mês atual
-        mes_atual = datetime.datetime.now().strftime('%m/%Y')
-        mes_atual_dt = pd.to_datetime(mes_atual, format='%m/%Y')
+        # Container centralizado para agrupar os filtros
+        _, center_col, _ = st.columns([1, 2, 1])
+        with center_col:
+            # Filtros em linha, abaixo do título, dentro do container
+            col_filtro_instituto, col_filtro_tipo, col_filtro_meses = st.columns(3, gap="medium")
+            
+            with col_filtro_instituto:
+                institutos_disponiveis = sorted(df_desvio['PÁGINA'].unique()) if 'PÁGINA' in df_desvio.columns else []
+                institutos_selecionados = st.multiselect(
+                    "Instituto", 
+                    institutos_disponiveis, 
+                    default=[],
+                    key="filtro_instituto_atrasos"
+                )
+            
+            with col_filtro_tipo:
+                tipos_atraso_disponiveis = sorted(df_desvio['TIPO'].unique()) if 'TIPO' in df_desvio.columns else []
+                tipos_atraso_selecionados = st.multiselect(
+                    "Tipo", 
+                    tipos_atraso_disponiveis, 
+                    default=[],
+                    key="filtro_tipo_atrasos"
+                )
+                
+            with col_filtro_meses:
+                opcoes_meses_atraso = ["até 1 mês", "até 3 meses", "até 6 meses", "até 9 meses", "até 12 meses", "Mais de 12 meses"]
+                meses_atraso_selecionado = st.multiselect(
+                    "Meses em atraso",
+                    opcoes_meses_atraso,
+                    default=[],
+                    key="filtro_meses_atraso"
+                )
+        
+        # Obter mês atual (primeiro dia do mês para comparação consistente)
+        hoje = datetime.datetime.now()
+        mes_atual = hoje.strftime('%m/%Y')
+        # Garantir que estamos usando o primeiro dia do mês atual para comparação
+        mes_atual_dt = datetime.datetime(hoje.year, hoje.month, 1)
         
         # Usar a mesma fonte de dados do desvio para garantir consistência
         df_atrasos = df_desvio.copy()
+        
+        # Aplicar filtros de Instituto e Tipo se selecionados
+        if institutos_selecionados:
+            df_atrasos = df_atrasos[df_atrasos['PÁGINA'].isin(institutos_selecionados)]
+        if tipos_atraso_selecionados:
+            df_atrasos = df_atrasos[df_atrasos['TIPO'].isin(tipos_atraso_selecionados)]
         
         # Verificar quais linhas têm data de previsão anterior ao mês atual E não têm repasse recebido
         # Verificar se as colunas necessárias existem e adicionar tratamento de erro
         if 'PREVISÃO DE DATA DE RECEBIMENTO' not in df_atrasos.columns:
             st.warning("Coluna 'PREVISÃO DE DATA DE RECEBIMENTO' não encontrada. Verifique a planilha de origem.")
             df_atrasos['PREVISÃO DE DATA DE RECEBIMENTO'] = 'A definir'  # Valor padrão
-            
-        df_atrasos['DATA_PREVISTA_DT'] = pd.to_datetime(df_atrasos['PREVISÃO DE DATA DE RECEBIMENTO'], format='%m/%Y', errors='coerce')
+        
+        # Função para converter string de data no formato MM/YYYY para datetime (primeiro dia do mês)
+        def converter_para_data(data_str):
+            if pd.isna(data_str) or data_str == 'A definir':
+                return pd.NaT
+            try:
+                # Verificar se está no formato esperado MM/YYYY
+                if isinstance(data_str, str) and re.match(r'^[0-9]{2}/[0-9]{4}$', data_str):
+                    mes, ano = map(int, data_str.split('/'))
+                    return datetime.datetime(ano, mes, 1)
+                return pd.NaT  # Retornar NaT para formatos inválidos
+            except (ValueError, TypeError):
+                return pd.NaT
+        
+        # Converter datas usando a função personalizada
+        df_atrasos['DATA_PREVISTA_DT'] = df_atrasos['PREVISÃO DE DATA DE RECEBIMENTO'].apply(converter_para_data)
+        
+        # Adicionar coluna para debug (opcional, pode ser removido em produção)
+        df_atrasos['MES_DEBUG'] = df_atrasos['PREVISÃO DE DATA DE RECEBIMENTO'].astype(str)
+        df_atrasos['DATA_PREVISTA_DEBUG'] = df_atrasos['DATA_PREVISTA_DT'].astype(str)
         
         # Uma linha está atrasada se: 
         # 1. A data prevista é anterior à data atual
@@ -1833,6 +1910,49 @@ if st.session_state["authentication_status"]:
             axis=1
         )
         
+        # Aplicar filtro de meses em atraso (se houver seleção)
+        df_atrasos_para_identificar_projetos = df_atrasos.copy()
+        if meses_atraso_selecionado:
+            # Garantir que estamos olhando apenas para linhas com atraso real
+            mascara_atraso_real = df_atrasos_para_identificar_projetos['MESES_ATRASO'] > 0
+            
+            # Construir uma máscara combinada para todas as seleções
+            final_mask = pd.Series(False, index=df_atrasos_para_identificar_projetos.index)
+            
+            for selecionado in meses_atraso_selecionado:
+                if selecionado == "até 1 mês":
+                    final_mask |= (mascara_atraso_real & (df_atrasos_para_identificar_projetos['MESES_ATRASO'] <= 1))
+                elif selecionado == "até 3 meses":
+                    final_mask |= (mascara_atraso_real & (df_atrasos_para_identificar_projetos['MESES_ATRASO'] <= 3))
+                elif selecionado == "até 6 meses":
+                    final_mask |= (mascara_atraso_real & (df_atrasos_para_identificar_projetos['MESES_ATRASO'] <= 6))
+                elif selecionado == "até 9 meses":
+                    final_mask |= (mascara_atraso_real & (df_atrasos_para_identificar_projetos['MESES_ATRASO'] <= 9))
+                elif selecionado == "até 12 meses":
+                    final_mask |= (mascara_atraso_real & (df_atrasos_para_identificar_projetos['MESES_ATRASO'] <= 12))
+                elif selecionado == "Mais de 12 meses":
+                    final_mask |= (df_atrasos_para_identificar_projetos['MESES_ATRASO'] > 12)
+            
+            # Aplicar o filtro de meses
+            df_atrasos_para_identificar_projetos = df_atrasos_para_identificar_projetos[final_mask]
+            
+            # Garantir que as colunas necessárias existam no DataFrame filtrado
+            # 1. Primeiro, calcular PERC_REPASSE_PREVISTO se não existir
+            if 'PERC_REPASSE_PREVISTO' not in df_atrasos_para_identificar_projetos.columns:
+                df_atrasos_para_identificar_projetos['PERC_REPASSE_PREVISTO'] = df_atrasos_para_identificar_projetos.apply(
+                    lambda row: row['PREVISÃO DE VALOR DE RECEBIMENTO'] / row['VALOR DO CONTRATO'] 
+                    if pd.notna(row['PREVISÃO DE VALOR DE RECEBIMENTO']) and row['VALOR DO CONTRATO'] > 0 else 0,
+                    axis=1
+                )
+            
+            # 2. Depois, calcular SALDO_A_RECEBER_ATRASADO usando PERC_REPASSE_PREVISTO
+            if 'SALDO_A_RECEBER_ATRASADO' not in df_atrasos_para_identificar_projetos.columns:
+                df_atrasos_para_identificar_projetos['SALDO_A_RECEBER_ATRASADO'] = df_atrasos_para_identificar_projetos.apply(
+                    lambda row: row['SALDO A RECEBER'] * row['PERC_REPASSE_PREVISTO'] 
+                    if row['LINHA_ATRASADA'] else 0,
+                    axis=1
+                )
+
         # Verificar se a coluna de previsão de valor existe
         if 'PREVISÃO DE VALOR DE RECEBIMENTO' not in df_atrasos.columns:
             st.warning("Coluna 'PREVISÃO DE VALOR DE RECEBIMENTO' não encontrada. Verifique a planilha de origem.")
@@ -1853,7 +1973,7 @@ if st.session_state["authentication_status"]:
         )
         
         # Identificar projetos que têm pelo menos uma linha atrasada
-        projetos_com_atraso = df_atrasos[df_atrasos['LINHA_ATRASADA']].groupby(['QUANT.', 'CLIENTE', 'PROJETO']).size().reset_index()
+        projetos_com_atraso = df_atrasos_para_identificar_projetos[df_atrasos_para_identificar_projetos['LINHA_ATRASADA']].groupby(['QUANT.', 'CLIENTE', 'PROJETO']).size().reset_index()
         projetos_com_atraso.rename(columns={0: 'NUM_LINHAS_ATRASADAS'}, inplace=True)
         
         # Se há projetos com atraso, mostrar a tabela
@@ -1866,24 +1986,36 @@ if st.session_state["authentication_status"]:
             ))
 
             linhas_para_mostrar = []
-            for projeto_id in projeto_ids_com_atraso:
-                quant, cliente, projeto = projeto_id
-                # Selecionar todas as linhas deste projeto
-                projeto_mask = (
-                    (df_atrasos['QUANT.'] == quant) &
-                    (df_atrasos['CLIENTE'] == cliente) &
-                    (df_atrasos['PROJETO'] == projeto)
-                )
-                linhas_para_mostrar.append(df_atrasos[projeto_mask])
+            if meses_atraso_selecionado:
+                # Se um filtro de mês foi selecionado, a tabela mostrará apenas as linhas que correspondem ao filtro.
+                # O df_atrasos_para_identificar_projetos já contém exatamente estas linhas, e apenas as atrasadas.
+                linhas_para_mostrar.append(df_atrasos_para_identificar_projetos)
+            else:
+                # Se NENHUM filtro de mês foi selecionado, mantenha o comportamento original:
+                # mostre TODAS as linhas de projetos que têm PELO MENOS UMA linha em atraso.
+                projeto_ids_com_atraso_loop = list(zip(
+                    projetos_com_atraso['QUANT.'],
+                    projetos_com_atraso['CLIENTE'],
+                    projetos_com_atraso['PROJETO']
+                ))
+
+                for projeto_id in projeto_ids_com_atraso_loop:
+                    quant, cliente, projeto = projeto_id
+                    projeto_mask = (
+                        (df_atrasos['QUANT.'] == quant) &
+                        (df_atrasos['CLIENTE'] == cliente) &
+                        (df_atrasos['PROJETO'] == projeto)
+                    )
+                    linhas_para_mostrar.append(df_atrasos[projeto_mask])
 
             if linhas_para_mostrar:
                 # Consolidar todas as linhas em um único DataFrame para exibição
                 df_linhas_mostrar = pd.concat(linhas_para_mostrar, ignore_index=True)
 
-                # --- Calculate Metrics based on *Actually Overdue* Lines --- #
-                df_realmente_atrasado = df_atrasos[df_atrasos['LINHA_ATRASADA'] == True]
+                # --- Calculate Metrics based on *Actually Overdue* Lines (respeitando o filtro de meses) --- #
+                df_realmente_atrasado = df_atrasos_para_identificar_projetos[df_atrasos_para_identificar_projetos['LINHA_ATRASADA'] == True]
 
-                # Metric 1 & 2: Counts (no change)
+                # Metric 1 & 2: Counts
                 total_projetos = len(projetos_com_atraso)
                 total_linhas_atrasadas = df_realmente_atrasado.shape[0]
 
@@ -1939,8 +2071,14 @@ if st.session_state["authentication_status"]:
                 # Calcular métricas totais para exibição
                 total_projetos = len(projetos_com_atraso)
                 total_linhas_atrasadas = projetos_com_atraso['NUM_LINHAS_ATRASADAS'].sum()
-                total_saldo_atrasado = df_linhas_mostrar[df_linhas_mostrar['LINHA_ATRASADA']]['SALDO_A_RECEBER_ATRASADO'].sum()
                 
+                # Calcular total_saldo_atrasado de forma segura, verificando se a coluna existe
+                if 'LINHA_ATRASADA' in df_linhas_mostrar.columns and 'SALDO_A_RECEBER_ATRASADO' in df_linhas_mostrar.columns:
+                    total_saldo_atrasado = df_linhas_mostrar[df_linhas_mostrar['LINHA_ATRASADA']]['SALDO_A_RECEBER_ATRASADO'].sum()
+                else:
+                    # Fallback: usar o total de repasses atrasados como aproximação
+                    total_saldo_atrasado = total_repasses_atrasado_calc
+
                 # Mostrar somente se houver saldo atrasado
                 if total_saldo_atrasado > 0:
                     # Exibir métricas
@@ -2629,93 +2767,54 @@ if st.session_state["authentication_status"]:
         def gerar_analise_grafico(dados, tipo_grafico):
             """
             Gera análise automática dos dados do gráfico usando IA simples.
-            
-            Args:
-                dados: DataFrame pandas com os dados do gráfico
-                tipo_grafico: string indicando o tipo de gráfico ('fundacao', 'tipo', 'cliente', 'custos')
-            
-            Returns:
-                String com análise gerada sobre os dados
             """
             try:
                 if tipo_grafico == 'fundacao':
-                    # Análise para gráfico de Valor a Receber por Fundação
+                    if dados.empty:
+                        return ""
                     total = dados['SALDO A RECEBER'].sum()
                     maior_fundacao = dados.iloc[0]['FUNDAÇÃO']
                     valor_maior = dados.iloc[0]['SALDO A RECEBER']
                     percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
-                    
-                    # Calcular a concentração nas 3 principais fundações
                     top3_valor = dados.head(3)['SALDO A RECEBER'].sum()
                     top3_percentual = (top3_valor / total) * 100 if total > 0 else 0
-                    
-                    analise = f"""
-                    <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
-                        <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> A fundação <strong>{maior_fundacao}</strong> representa {percentual_maior:.1f}% do total a receber.
-                        As três principais fundações concentram {top3_percentual:.1f}% do valor total.</p>
-                    </div>
-                    """
-                    
+                    analise = f"""<div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'><p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> A fundação <strong>{maior_fundacao}</strong> representa {percentual_maior:.1f}% do total a receber. As três principais fundações concentram {top3_percentual:.1f}% do valor total.</p></div>"""
                 elif tipo_grafico == 'tipo':
-                    # Análise para gráfico de Valor a Receber por Tipo de Serviço
+                    if dados.empty:
+                        return ""
                     total = dados['SALDO A RECEBER'].sum()
                     maior_tipo = dados.iloc[0]['TIPO']
                     valor_maior = dados.iloc[0]['SALDO A RECEBER']
                     percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
-                    
-                    # Verificar diversificação dos tipos de serviço
                     qtd_tipos = len(dados)
                     diversificacao = "alta" if qtd_tipos >= 4 else "média" if qtd_tipos >= 2 else "baixa"
-                    
-                    analise = f"""
-                    <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
-                        <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> O serviço <strong>{maior_tipo}</strong> representa {percentual_maior:.1f}% do total a receber.
-                        A diversificação de serviços é {diversificacao} com {qtd_tipos} tipos diferentes.</p>
-                    </div>
-                    """
-                    
+                    analise = f"""<div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'><p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> O serviço <strong>{maior_tipo}</strong> representa {percentual_maior:.1f}% do total a receber. A diversificação de serviços é {diversificacao} com {qtd_tipos} tipos diferentes.</p></div>"""
                 elif tipo_grafico == 'cliente':
-                    # Análise para gráfico de Distribuição por Cliente
-                    maior_cliente = dados.iloc[-1]['CLIENTE AGRUPADO']  # Último item devido ao sort ascending=True
+                    if dados.empty:
+                        return ""
+                    maior_cliente = dados.iloc[-1]['CLIENTE AGRUPADO']
                     valor_maior = dados.iloc[-1]['SALDO A RECEBER']
                     total = dados['SALDO A RECEBER'].sum()
                     percentual_maior = (valor_maior / total) * 100 if total > 0 else 0
-                    
-                    # Verificar concentração em "Outros"
                     tem_outros = 'Outros' in dados['CLIENTE AGRUPADO'].values
-                    
+                    analise_outros = ""
                     if tem_outros:
                         valor_outros = dados[dados['CLIENTE AGRUPADO'] == 'Outros']['SALDO A RECEBER'].sum()
                         percentual_outros = (valor_outros / total) * 100 if total > 0 else 0
                         analise_outros = f"Clientes menores ('Outros') representam {percentual_outros:.1f}% do faturamento."
                     else:
                         analise_outros = "Não há clientes agrupados na categoria 'Outros'."
-                    
-                    analise = f"""
-                    <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
-                        <p style='font-size: 14px; margin: 0;'><strong> Análise em tempo real:</strong> O cliente <strong>{maior_cliente}</strong> representa {percentual_maior:.1f}% do valor total a receber.
-                        {analise_outros}</p>
-                    </div>
-                    """
-                    
+                    analise = f"""<div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'><p style='font-size: 14px; margin: 0;'><strong> Análise em tempo real:</strong> O cliente <strong>{maior_cliente}</strong> representa {percentual_maior:.1f}% do valor total a receber. {analise_outros}</p></div>"""
                 elif tipo_grafico == 'custos':
-                    # Análise para gráfico de Distribuição dos Custos
+                    if not dados or sum(dados) == 0:
+                        return ""
                     total = sum(dados)
                     percentual_incorridos = (dados[0] / total) * 100 if total > 0 else 0
-                    percentual_correlatos = (dados[1] / total) * 100 if total > 0 else 0
-                    
                     razao = dados[0] / dados[1] if dados[1] > 0 else float('inf')
                     analise_razao = f"Os custos incorridos são {razao:.1f}x maiores que os correlatos."
-                    
-                    analise = f"""
-                    <div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'>
-                        <p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> Custos incorridos representam {percentual_incorridos:.1f}% do total.
-                        {analise_razao}</p>
-                    </div>
-                    """
+                    analise = f"""<div style='background-color: #f0f8ff; padding: 10px; border-radius: 5px; margin-top: 10px; margin-bottom: 40px;'><p style='font-size: 14px; margin: 0;'><strong>Análise em tempo real:</strong> Custos incorridos representam {percentual_incorridos:.1f}% do total. {analise_razao}</p></div>"""
                 else:
                     analise = "<div></div>"
-                    
                 return analise
             except Exception as e:
                 return f"<div style='color: #999; font-size: 12px;'>Não foi possível gerar análise: {str(e)}</div>"
@@ -2723,58 +2822,32 @@ if st.session_state["authentication_status"]:
         # Gráfico de barras horizontais - Distribuição por Cliente
         with row2_col1:
             st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Distribuição por Cliente</h3>", unsafe_allow_html=True)
-            
             col_date, col_tipo, col_fundacao = st.columns(3)
-            
             with col_date:
-                datas_disponiveis = ordenar_datas(data['DATA'].unique())
-                datas_selecionadas = st.multiselect(
-                    "Data:", 
-                    datas_disponiveis, 
-                    default=st.session_state.graph_filters['cliente']['datas'],
-                    key="cliente_data_select",
-                    on_change=update_graph_filter,
-                    args=('cliente', 'datas', st.session_state.get('cliente_data_select', []))
-                )
-                # Atualizar valores no session_state
+                datas_selecionadas = st.multiselect("Data:", meses_disponiveis_all, default=st.session_state.graph_filters['cliente']['datas'], key="cliente_data_select", on_change=update_graph_filter, args=('cliente', 'datas', st.session_state.get('cliente_data_select', [])))
                 st.session_state.graph_filters['cliente']['datas'] = datas_selecionadas
-                
             with col_tipo:
-                tipos_disponiveis = sorted(data['TIPO'].unique())
-                tipos_selecionados = st.multiselect(
-                    "Tipo de Serviço:", 
-                    tipos_disponiveis, 
-                    default=st.session_state.graph_filters['cliente']['tipos'],
-                    key="cliente_tipo_select",
-                    on_change=update_graph_filter,
-                    args=('cliente', 'tipos', st.session_state.get('cliente_tipo_select', []))
-                )
-                # Atualizar valores no session_state
+                tipos_disponiveis = sorted(df_desvio['TIPO'].unique())
+                tipos_selecionados = st.multiselect("Tipo de Serviço:", tipos_disponiveis, default=st.session_state.graph_filters['cliente']['tipos'], key="cliente_tipo_select", on_change=update_graph_filter, args=('cliente', 'tipos', st.session_state.get('cliente_tipo_select', [])))
                 st.session_state.graph_filters['cliente']['tipos'] = tipos_selecionados
-                
             with col_fundacao:
-                fundacoes_disponiveis = sorted(data['FUNDAÇÃO'].unique())
-                fundacoes_selecionadas = st.multiselect(
-                    "Fundação:", 
-                    fundacoes_disponiveis, 
-                    default=st.session_state.graph_filters['cliente']['fundacoes'],
-                    key="cliente_fundacao_select",
-                    on_change=update_graph_filter,
-                    args=('cliente', 'fundacoes', st.session_state.get('cliente_fundacao_select', []))
-                )
-                # Atualizar valores no session_state
+                fundacoes_disponiveis = sorted(df_desvio['FUNDAÇÃO'].unique())
+                fundacoes_selecionadas = st.multiselect("Fundação:", fundacoes_disponiveis, default=st.session_state.graph_filters['cliente']['fundacoes'], key="cliente_fundacao_select", on_change=update_graph_filter, args=('cliente', 'fundacoes', st.session_state.get('cliente_fundacao_select', [])))
                 st.session_state.graph_filters['cliente']['fundacoes'] = fundacoes_selecionadas
             
-            # Use values from session state for filtering
-            dados_local = data.copy()
+            dados_local = df_desvio.copy()
             if st.session_state.graph_filters['cliente']['datas']:
-                dados_local = dados_local[dados_local['DATA'].isin(st.session_state.graph_filters['cliente']['datas'])]
+                dados_local = dados_local[dados_local['PREVISÃO DE DATA DE RECEBIMENTO'].isin(st.session_state.graph_filters['cliente']['datas'])]
             if st.session_state.graph_filters['cliente']['tipos']:
                 dados_local = dados_local[dados_local['TIPO'].isin(st.session_state.graph_filters['cliente']['tipos'])]
             if st.session_state.graph_filters['cliente']['fundacoes']:
                 dados_local = dados_local[dados_local['FUNDAÇÃO'].isin(st.session_state.graph_filters['cliente']['fundacoes'])]
-                
-            # Create the graph
+            
+            if not dados_local.empty:
+                dados_local['SALDO A RECEBER'] = dados_local.groupby('PROJETO_ID_KEY')['SALDO A RECEBER'].transform('first')
+                dados_local = dados_local.drop_duplicates(subset=['PROJETO_ID_KEY'])
+                dados_local = dados_local[dados_local['SALDO A RECEBER'] > 0]
+            
             total_por_cliente = dados_local.groupby('CLIENTE')['SALDO A RECEBER'].sum().reset_index()
             total_por_cliente = total_por_cliente.sort_values(by='SALDO A RECEBER', ascending=False)
             total_por_cliente['CLIENTE AGRUPADO'] = total_por_cliente['CLIENTE']
@@ -2806,80 +2879,32 @@ if st.session_state["authentication_status"]:
         # Gráfico de Pizza: Distribuição dos Custos Incorridos e Correlatos
         with row2_col2:
             st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Distribuição dos Custos</h3>", unsafe_allow_html=True)
-            
             col1, col2, col3 = st.columns(3)
-            
             with col1:
-                datas_disponiveis_custos = ordenar_datas(data['DATA'].unique())
-                datas_selecionadas_custos = st.multiselect(
-                    "Data:", 
-                    datas_disponiveis_custos, 
-                    default=st.session_state.graph_filters['custos']['datas'],
-                    key="custos_data_select",
-                    on_change=update_graph_filter,
-                    args=('custos', 'datas', st.session_state.get('custos_data_select', []))
-                )
+                datas_selecionadas_custos = st.multiselect("Data:", meses_disponiveis_all, default=st.session_state.graph_filters['custos']['datas'], key="custos_data_select", on_change=update_graph_filter, args=('custos', 'datas', st.session_state.get('custos_data_select', [])))
                 st.session_state.graph_filters['custos']['datas'] = datas_selecionadas_custos
-                
             with col2:
-                fundacoes_disponiveis_custos = sorted(data['FUNDAÇÃO'].unique())
-                fundacoes_selecionadas_custos = st.multiselect(
-                    "Fundação:", 
-                    fundacoes_disponiveis_custos, 
-                    default=st.session_state.graph_filters['custos']['fundacoes'],
-                    key="custos_fundacao_select",
-                    on_change=update_graph_filter,
-                    args=('custos', 'fundacoes', st.session_state.get('custos_fundacao_select', []))
-                )
+                fundacoes_disponiveis_custos = sorted(df_desvio['FUNDAÇÃO'].unique())
+                fundacoes_selecionadas_custos = st.multiselect("Fundação:", fundacoes_disponiveis_custos, default=st.session_state.graph_filters['custos']['fundacoes'], key="custos_fundacao_select", on_change=update_graph_filter, args=('custos', 'fundacoes', st.session_state.get('custos_fundacao_select', [])))
                 st.session_state.graph_filters['custos']['fundacoes'] = fundacoes_selecionadas_custos
-                
             with col3:
-                clientes_disponiveis_custos = sorted(data['CLIENTE'].unique())
-                clientes_selecionados_custos = st.multiselect(
-                    "Cliente:", 
-                    clientes_disponiveis_custos, 
-                    default=st.session_state.graph_filters['custos']['clientes'],
-                    key="custos_cliente_select",
-                    on_change=update_graph_filter,
-                    args=('custos', 'clientes', st.session_state.get('custos_cliente_select', []))
-                )
+                clientes_disponiveis_custos = sorted(df_desvio['CLIENTE'].unique())
+                clientes_selecionados_custos = st.multiselect("Cliente:", clientes_disponiveis_custos, default=st.session_state.graph_filters['custos']['clientes'], key="custos_cliente_select", on_change=update_graph_filter, args=('custos', 'clientes', st.session_state.get('custos_cliente_select', [])))
                 st.session_state.graph_filters['custos']['clientes'] = clientes_selecionados_custos
                 
-            dados_local_custos = data.copy()
+            dados_local_custos = df_desvio.copy()
             if st.session_state.graph_filters['custos']['datas']:
-                dados_local_custos = dados_local_custos[dados_local_custos['DATA'].isin(st.session_state.graph_filters['custos']['datas'])]
+                dados_local_custos = dados_local_custos[dados_local_custos['PREVISÃO DE DATA DE RECEBIMENTO'].isin(st.session_state.graph_filters['custos']['datas'])]
             if st.session_state.graph_filters['custos']['fundacoes']:
                 dados_local_custos = dados_local_custos[dados_local_custos['FUNDAÇÃO'].isin(st.session_state.graph_filters['custos']['fundacoes'])]
             if st.session_state.graph_filters['custos']['clientes']:
                 dados_local_custos = dados_local_custos[dados_local_custos['CLIENTE'].isin(st.session_state.graph_filters['custos']['clientes'])]
 
-            # --- Corrected Cost Calculation: Sum unique costs per project --- #
-            # Define project grouping keys (ensure these uniquely identify a project contract)
-            project_group_keys_costs = []
-            if 'QUANT.' in dados_local_custos.columns:
-                project_group_keys_costs.append('QUANT.')
-            if 'CLIENTE' in dados_local_custos.columns:
-                project_group_keys_costs.append('CLIENTE')
-            if 'PROJETO' in dados_local_custos.columns:
-                project_group_keys_costs.append('PROJETO')
-            # Add VALOR DO CONTRATO as it seems crucial for unique project identification
-            if 'VALOR DO CONTRATO' in dados_local_custos.columns:
-                 project_group_keys_costs.append('VALOR DO CONTRATO')
-
-            total_custos_incurridos = 0
-            total_custos_correlatos = 0
-
-            if project_group_keys_costs and not dados_local_custos.empty:
-                 # Group by unique project and take the first cost value (assuming it's repeated)
-                 unique_project_costs = dados_local_custos.groupby(project_group_keys_costs, observed=True, dropna=False).agg(
-                     unique_incurridos=('CUSTOS INCORRIDOS', 'first'),
-                     unique_correlatos=('OUTROS CORRELATOS', 'first')
-                 ).reset_index()
-
-                 # Sum the unique costs
-                 total_custos_incurridos = unique_project_costs['unique_incurridos'].sum()
-                 total_custos_correlatos = unique_project_costs['unique_correlatos'].sum()
-
+            total_custos_incurridos, total_custos_correlatos = 0, 0
+            if not dados_local_custos.empty:
+                unique_project_costs = dados_local_custos.drop_duplicates(subset=['PROJETO_ID_KEY'])
+                total_custos_incurridos = unique_project_costs['CUSTOS INCORRIDOS'].sum()
+                total_custos_correlatos = unique_project_costs['OUTROS CORRELATOS'].sum()
             custos_labels = ['Custos Incorridos', 'Custos Correlatos']
             custos_values = [total_custos_incurridos, total_custos_correlatos]
             color_map = {
@@ -2915,38 +2940,25 @@ if st.session_state["authentication_status"]:
         # Gráfico de barras - Distribuição de Valor a Receber por Fundação
         with row1_col1:
             st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Valor a Receber por Fundação</h3>", unsafe_allow_html=True)
-            
             col_date, col_tipo = st.columns(2)
-            
             with col_date:
-                datas_disponiveis_fundacao = ordenar_datas(data['DATA'].unique())
-                datas_selecionadas_fundacao = st.multiselect(
-                    "Data:", 
-                    datas_disponiveis_fundacao, 
-                    default=st.session_state.graph_filters['fundacao']['datas'],
-                    key="fundacao_data_select",
-                    on_change=update_graph_filter,
-                    args=('fundacao', 'datas', st.session_state.get('fundacao_data_select', []))
-                )
+                datas_selecionadas_fundacao = st.multiselect("Data:", meses_disponiveis_all, default=st.session_state.graph_filters['fundacao']['datas'], key="fundacao_data_select", on_change=update_graph_filter, args=('fundacao', 'datas', st.session_state.get('fundacao_data_select', [])))
                 st.session_state.graph_filters['fundacao']['datas'] = datas_selecionadas_fundacao
-                
             with col_tipo:
-                tipos_disponiveis = sorted(data['TIPO'].unique())
-                tipos_selecionados_fund = st.multiselect(
-                    "Tipo de Serviço:", 
-                    tipos_disponiveis, 
-                    default=st.session_state.graph_filters['fundacao']['tipos'],
-                    key="fundacao_tipo_select",
-                    on_change=update_graph_filter,
-                    args=('fundacao', 'tipos', st.session_state.get('fundacao_tipo_select', []))
-                )
+                tipos_disponiveis = sorted(df_desvio['TIPO'].unique())
+                tipos_selecionados_fund = st.multiselect("Tipo de Serviço:", tipos_disponiveis, default=st.session_state.graph_filters['fundacao']['tipos'], key="fundacao_tipo_select", on_change=update_graph_filter, args=('fundacao', 'tipos', st.session_state.get('fundacao_tipo_select', [])))
                 st.session_state.graph_filters['fundacao']['tipos'] = tipos_selecionados_fund
                 
-            dados_local_fundacao = data.copy()
+            dados_local_fundacao = df_desvio.copy()
             if st.session_state.graph_filters['fundacao']['datas']:
-                dados_local_fundacao = dados_local_fundacao[dados_local_fundacao['DATA'].isin(st.session_state.graph_filters['fundacao']['datas'])]
+                dados_local_fundacao = dados_local_fundacao[dados_local_fundacao['PREVISÃO DE DATA DE RECEBIMENTO'].isin(st.session_state.graph_filters['fundacao']['datas'])]
             if st.session_state.graph_filters['fundacao']['tipos']:
                 dados_local_fundacao = dados_local_fundacao[dados_local_fundacao['TIPO'].isin(st.session_state.graph_filters['fundacao']['tipos'])]
+            
+            if not dados_local_fundacao.empty:
+                dados_local_fundacao['SALDO A RECEBER'] = dados_local_fundacao.groupby('PROJETO_ID_KEY')['SALDO A RECEBER'].transform('first')
+                dados_local_fundacao = dados_local_fundacao.drop_duplicates(subset=['PROJETO_ID_KEY'])
+                dados_local_fundacao = dados_local_fundacao[dados_local_fundacao['SALDO A RECEBER'] > 0]
             
             total_a_receber_por_fundacao = dados_local_fundacao.groupby('FUNDAÇÃO')['SALDO A RECEBER'].sum().reset_index()
             total_a_receber_por_fundacao['SALDO A RECEBER'] = pd.to_numeric(total_a_receber_por_fundacao['SALDO A RECEBER'], errors='coerce')
@@ -2977,38 +2989,25 @@ if st.session_state["authentication_status"]:
         # Gráfico de barras - Distribuição de Valor a Receber por Tipo de Serviço
         with row1_col2:
             st.markdown("<h3 style='font-size: 23px; margin-bottom: 20px;'>Valor a Receber por Tipo de Serviço</h3>", unsafe_allow_html=True)
-            
             col_date, col_fundacao = st.columns(2)
-            
             with col_date:
-                datas_disponiveis_tipo = ordenar_datas(data['DATA'].unique())
-                datas_selecionadas_tipo = st.multiselect(
-                    "Data:", 
-                    datas_disponiveis_tipo, 
-                    default=st.session_state.graph_filters['tipo']['datas'],
-                    key="tipo_data_select",
-                    on_change=update_graph_filter,
-                    args=('tipo', 'datas', st.session_state.get('tipo_data_select', []))
-                )
+                datas_selecionadas_tipo = st.multiselect("Data:", meses_disponiveis_all, default=st.session_state.graph_filters['tipo']['datas'], key="tipo_data_select", on_change=update_graph_filter, args=('tipo', 'datas', st.session_state.get('tipo_data_select', [])))
                 st.session_state.graph_filters['tipo']['datas'] = datas_selecionadas_tipo
-                
             with col_fundacao:
-                fundacoes_disponiveis_tipo = sorted(data['FUNDAÇÃO'].unique())
-                fundacoes_selecionadas_tipo = st.multiselect(
-                    "Fundação:", 
-                    fundacoes_disponiveis_tipo, 
-                    default=st.session_state.graph_filters['tipo']['fundacoes'],
-                    key="tipo_fundacao_select",
-                    on_change=update_graph_filter,
-                    args=('tipo', 'fundacoes', st.session_state.get('tipo_fundacao_select', []))
-                )
+                fundacoes_disponiveis_tipo = sorted(df_desvio['FUNDAÇÃO'].unique())
+                fundacoes_selecionadas_tipo = st.multiselect("Fundação:", fundacoes_disponiveis_tipo, default=st.session_state.graph_filters['tipo']['fundacoes'], key="tipo_fundacao_select", on_change=update_graph_filter, args=('tipo', 'fundacoes', st.session_state.get('tipo_fundacao_select', [])))
                 st.session_state.graph_filters['tipo']['fundacoes'] = fundacoes_selecionadas_tipo
                 
-            dados_local_tipo = data.copy()
+            dados_local_tipo = df_desvio.copy()
             if st.session_state.graph_filters['tipo']['datas']:
-                dados_local_tipo = dados_local_tipo[dados_local_tipo['DATA'].isin(st.session_state.graph_filters['tipo']['datas'])]
+                dados_local_tipo = dados_local_tipo[dados_local_tipo['PREVISÃO DE DATA DE RECEBIMENTO'].isin(st.session_state.graph_filters['tipo']['datas'])]
             if st.session_state.graph_filters['tipo']['fundacoes']:
                 dados_local_tipo = dados_local_tipo[dados_local_tipo['FUNDAÇÃO'].isin(st.session_state.graph_filters['tipo']['fundacoes'])]
+            
+            if not dados_local_tipo.empty:
+                dados_local_tipo['SALDO A RECEBER'] = dados_local_tipo.groupby('PROJETO_ID_KEY')['SALDO A RECEBER'].transform('first')
+                dados_local_tipo = dados_local_tipo.drop_duplicates(subset=['PROJETO_ID_KEY'])
+                dados_local_tipo = dados_local_tipo[dados_local_tipo['SALDO A RECEBER'] > 0]
             
             total_a_receber_por_tipo = dados_local_tipo.groupby('TIPO')['SALDO A RECEBER'].sum().reset_index()
             total_a_receber_por_tipo['SALDO A RECEBER'] = pd.to_numeric(total_a_receber_por_tipo['SALDO A RECEBER'], errors='coerce')
