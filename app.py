@@ -25,7 +25,7 @@ from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 # Configure Streamlit to reduce automatic reruns
 # Carregar flat logo via URL direta
 logo_flat = 'https://www.innovatismc.com.br/wp-content/uploads/2023/12/logo-innovatis-flatico-150x150.png'
-st.set_page_config(layout="wide", page_title='DASHBOARD v1.3', page_icon=logo_flat)
+st.set_page_config(layout="wide", page_title='DASHBOARD v1.4', page_icon=logo_flat)
 
 # Add custom CSS to improve loading experience
 st.markdown("""
@@ -464,7 +464,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Título do aplicativo
-st.title('Dashboard Financeiro (v1.3)')
+st.title('Dashboard Financeiro (v1.4)')
 
 # Importar arquivo de configuração
 with open('config.yaml') as file:
@@ -3037,7 +3037,7 @@ if st.session_state["authentication_status"]:
             
         # Rodapé
         st.markdown("---")
-        st.markdown("<div style='text-align: center;'>Dashboard Financeiro Versão 1.3 © 2025</div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align: center;'>Dashboard Financeiro Versão 1.4 © 2025</div>", unsafe_allow_html=True)
 
 try:
     # Tente executar o dashboard
