@@ -1815,38 +1815,35 @@ if st.session_state["authentication_status"]:
         st.markdown("---")
         st.subheader("Repasses em Atraso ⚠️")
         
-        # Container centralizado para agrupar os filtros
-        _, center_col, _ = st.columns([1, 2, 1])
-        with center_col:
-            # Filtros em linha, abaixo do título, dentro do container
-            col_filtro_instituto, col_filtro_tipo, col_filtro_meses = st.columns(3, gap="medium")
+        # Filtros em linha, abaixo do título
+        col_filtro_instituto, col_filtro_tipo, col_filtro_meses = st.columns(3)
             
-            with col_filtro_instituto:
-                institutos_disponiveis = sorted(df_desvio['PÁGINA'].unique()) if 'PÁGINA' in df_desvio.columns else []
-                institutos_selecionados = st.multiselect(
-                    "Instituto", 
-                    institutos_disponiveis, 
-                    default=[],
-                    key="filtro_instituto_atrasos"
-                )
+        with col_filtro_instituto:
+            institutos_disponiveis = sorted(df_desvio['PÁGINA'].unique()) if 'PÁGINA' in df_desvio.columns else []
+            institutos_selecionados = st.multiselect(
+                "Instituto", 
+                institutos_disponiveis, 
+                default=[],
+                key="filtro_instituto_atrasos"
+            )
+        
+        with col_filtro_tipo:
+            tipos_atraso_disponiveis = sorted(df_desvio['TIPO'].unique()) if 'TIPO' in df_desvio.columns else []
+            tipos_atraso_selecionados = st.multiselect(
+                "Tipo", 
+                tipos_atraso_disponiveis, 
+                default=[],
+                key="filtro_tipo_atrasos"
+            )
             
-            with col_filtro_tipo:
-                tipos_atraso_disponiveis = sorted(df_desvio['TIPO'].unique()) if 'TIPO' in df_desvio.columns else []
-                tipos_atraso_selecionados = st.multiselect(
-                    "Tipo", 
-                    tipos_atraso_disponiveis, 
-                    default=[],
-                    key="filtro_tipo_atrasos"
-                )
-                
-            with col_filtro_meses:
-                opcoes_meses_atraso = ["até 1 mês", "até 3 meses", "até 6 meses", "até 9 meses", "até 12 meses", "Mais de 12 meses"]
-                meses_atraso_selecionado = st.multiselect(
-                    "Meses em atraso",
-                    opcoes_meses_atraso,
-                    default=[],
-                    key="filtro_meses_atraso"
-                )
+        with col_filtro_meses:
+            opcoes_meses_atraso = ["até 1 mês", "até 3 meses", "até 6 meses", "até 9 meses", "até 12 meses", "Mais de 12 meses"]
+            meses_atraso_selecionado = st.multiselect(
+                "Meses em atraso",
+                opcoes_meses_atraso,
+                default=[],
+                key="filtro_meses_atraso"
+            )
         
         # Obter mês atual (primeiro dia do mês para comparação consistente)
         hoje = datetime.datetime.now()
