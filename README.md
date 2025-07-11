@@ -1,4 +1,4 @@
-# Dashboard Financeiro (v1.3)
+# Dashboard Financeiro (v1.4)
 
 Um dashboard financeiro abrangente desenvolvido em Streamlit para monitoramento e análise de projetos financeiros vinculados a fundações, com capacidades avançadas de rastreamento de receitas, análise de desvios e gestão de repasses.
 
@@ -216,7 +216,7 @@ streamlit run app.py
 - **Prevenção de Duplicidade**: Tratamento adequado de linhas repetidas do mesmo projeto
 - **Otimização de Código**: Simplificação de chave de projeto para maior performance e confiabilidade
 
-### Melhorias nos Filtros e Análise Gráfica (v1.3)
+### Melhorias nos Filtros e Análise Gráfica (v1.4)
 - **Lógica de Atrasos Corrigida**: A verificação de "Repasses em Atraso" agora compara as datas de forma precisa, garantindo que apenas registros genuinamente anteriores ao mês atual sejam considerados.
 - **Filtro de Meses Otimizado**: O filtro "Meses (Previsão)" foi aprimorado para:
   - Exibir a opção "A definir" no topo da lista para melhor usabilidade.
@@ -231,4 +231,4 @@ Este projeto foi desenvolvido para atender necessidades específicas de gestão 
 
 ## 📄 Licença
 
-Dashboard Financeiro Versão 1.3 © 2025 - Innovatis
+Dashboard Financeiro Versão 1.4 © 2025 - Innovatis
