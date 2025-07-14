@@ -503,8 +503,8 @@ if st.session_state["authentication_status"]:
     s3 = boto3.resource(
         service_name='s3',
         region_name='us-east-2',
-        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
+        aws_access_key_id=st.secrets("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=st.secrets("AWS_SECRET_ACCESS_KEY")
     )
 
     # ---------------------------------------------------
