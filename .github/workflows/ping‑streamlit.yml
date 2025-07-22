@@ -2,14 +2,15 @@ name: Ping Streamlit App
 
 on:
   schedule:
-    # roda a cada 10 horas (0, 10, 20 UTC)
-    - cron: '0 */10 * * *'
-  workflow_dispatch:   # opcional: permite disparo manual
+    # roda a cada 8 h, o suficiente para ficar < 12 h
+    - cron:  '0 */8 * * *'
+  workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Call Streamlit URL
+      - name: Pingar URL pública
         run: |
-          curl -s -o /dev/null -w "%{http_code}\n" https://meu-app.streamlit.app || echo "falhou"
+          curl -f -s -o /dev/null https://db-fin-innovatis.streamlit.app/ \
+            && echo "Ping OK"
