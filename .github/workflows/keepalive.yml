@@ -1,9 +1,13 @@
-name: Daily keepalive empty commit
+name: Keep Streamlit Awake (00:00, 07:50, 18:50 Recife)
 
 on:
   schedule:
-    # 09:00 UTC = 06:00 America/Recife
-    - cron: "0 9 * * *"
+    # 00:00 America/Recife (UTC-3) -> 03:00 UTC
+    - cron: "0 3 * * *"
+    # 07:50 America/Recife (UTC-3) -> 10:50 UTC
+    - cron: "50 10 * * *"
+    # 18:50 America/Recife (UTC-3) -> 21:50 UTC
+    - cron: "50 21 * * *"
   workflow_dispatch:
 
 permissions:
@@ -20,7 +24,6 @@ jobs:
       - name: Checkout default branch
         uses: actions/checkout@v4
         with:
-          # Garantir histórico completo e token com escrita
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -28,13 +31,10 @@ jobs:
         id: branch
         shell: bash
         run: |
-          # 1) Tenta pegar do contexto do GitHub
           DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
-          # 2) Se vier vazio (em alguns casos raros de cron), detecta pelo remote HEAD
           if [ -z "$DEFAULT_BRANCH" ]; then
             DEFAULT_BRANCH="$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')"
           fi
-          # 3) Fallback final
           if [ -z "$DEFAULT_BRANCH" ]; then
             DEFAULT_BRANCH="main"
           fi
@@ -45,14 +45,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Create empty commit on default branch
+      - name: Create empty commit and push
         run: |
           BRANCH="${{ steps.branch.outputs.default_branch }}"
           git fetch origin "$BRANCH" --depth=1
           git checkout "$BRANCH"
-          # Evita conflitos se houve commits recentes
           git pull --ff-only origin "$BRANCH" || true
-          # Commit vazio
           git commit --allow-empty -m "chore(keepalive): empty commit $(date -u +'%Y-%m-%dT%H:%M:%SZ') [skip ci]"
-          # Push explícito para o branch padrão
           git push origin HEAD:"$BRANCH"
