@@ -1140,6 +1140,20 @@ if st.session_state["authentication_status"]:
                 background-color: rgba(49, 170, 77, 0.1) !important;
             }
 
+            /* Remover caret (barra piscando) dos selectboxes */
+            .stSelectbox div[data-baseweb="select"] input {
+                caret-color: transparent !important;
+                user-select: none !important;
+            }
+            .stSelectbox div[data-baseweb="select"] input:focus {
+                outline: none !important;
+                box-shadow: none !important;
+                caret-color: transparent !important;
+            }
+            .stSelectbox div[data-baseweb="select"] input::selection {
+                background: transparent !important;
+            }
+
             /* Corrigir cor de fundo do slider */
             .stSlider > div > div > div {
                 background-color: white !important;
