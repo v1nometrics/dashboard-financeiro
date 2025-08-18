@@ -1,4 +1,4 @@
-# Dashboard Financeiro (v1.4)
+# Dashboard Financeiro (v1.5)
 
 Um dashboard financeiro abrangente desenvolvido em Streamlit para monitoramento e análise de projetos financeiros vinculados a fundações, com capacidades avançadas de rastreamento de receitas, análise de desvios e gestão de repasses.
 
@@ -73,7 +73,8 @@ Este sistema oferece uma plataforma completa para:
 - **Recomendações**: Insights específicos por tipo de visualização
 
 ### ⚡ Otimizações de Performance
-- **Cache Inteligente**: `@st.cache_data` em funções de carregamento
+- **Cache Inteligente (v1.5)**: uso extensivo de `@st.cache_data` (pré-processamento do Excel, geração de planilhas, mapas de cores e consultas do histórico) para tornar trocas de seleção instantâneas.
+- **Botão “Forçar atualização de dados” (v1.5)**: limpa todo o cache do aplicativo e recarrega as fontes do zero; útil quando a base de dados externa foi atualizada.
 - **Controle de Rerun**: Prevenção de recarregamentos desnecessários
 - **Session State**: Persistência de filtros e estados de interface
 - **Processamento Assíncrono**: Carregamento otimizado de dados
@@ -209,6 +210,11 @@ streamlit run app.py
 
 ## 🛠️ Atualizações Recentes
 
+### Novidades v1.5
+- **Botão “Forçar atualização de dados”**: adiciona um atalho visual para apagar o cache (`st.cache_data.clear()`) e recarregar tudo automaticamente.
+- **Histórico de Faturamento**: carregamento cacheado, seleção de ano/mês instantânea, e novos botões para baixar o histórico completo em Excel e para exibição da tabela completa no app.
+- **Consistência Visual**: dropdowns do “Histórico de Faturamento” com o mesmo estilo (cores, bordas, hover) de “Repasses em Atraso”.
+
 ### Correções no Cálculo do Valor Total a Receber
 - **Identificação Única de Projetos**: Implementação de chave composta `PÁGINA_QUANT.` para garantir a correta contabilização
 - **Integridade por Aba**: Reconhecimento que cada aba contém projetos únicos, mesmo com números de `QUANT.` repetidos
@@ -216,7 +222,7 @@ streamlit run app.py
 - **Prevenção de Duplicidade**: Tratamento adequado de linhas repetidas do mesmo projeto
 - **Otimização de Código**: Simplificação de chave de projeto para maior performance e confiabilidade
 
-### Melhorias nos Filtros e Análise Gráfica (v1.4)
+### Melhorias nos Filtros e Análise Gráfica (v1.5)
 - **Lógica de Atrasos Corrigida**: A verificação de "Repasses em Atraso" agora compara as datas de forma precisa, garantindo que apenas registros genuinamente anteriores ao mês atual sejam considerados.
 - **Filtro de Meses Otimizado**: O filtro "Meses (Previsão)" foi aprimorado para:
   - Exibir a opção "A definir" no topo da lista para melhor usabilidade.
@@ -231,4 +237,4 @@ Este projeto foi desenvolvido para atender necessidades específicas de gestão 
 
 ## 📄 Licença
 
-Dashboard Financeiro Versão 1.4 © 2025 - Innovatis
+Dashboard Financeiro Versão 1.5 © 2025 - Innovatis

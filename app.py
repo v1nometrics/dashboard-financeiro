@@ -21,11 +21,16 @@ import io
 import colorsys
 from io import BytesIO
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+import os
+from dotenv import load_dotenv
+
+# Carregar variáveis do arquivo .env (para uso local)
+load_dotenv()
 
 # Configure Streamlit to reduce automatic reruns
 # Carregar flat logo via URL direta
 logo_flat = 'https://www.innovatismc.com.br/wp-content/uploads/2023/12/logo-innovatis-flatico-150x150.png'
-st.set_page_config(layout="wide", page_title='DASHBOARD v1.4', page_icon=logo_flat)
+st.set_page_config(layout="wide", page_title='DASHBOARD v1.5', page_icon=logo_flat)
 
 # Add custom CSS to improve loading experience
 st.markdown("""
@@ -128,6 +133,7 @@ def rgba_to_hex(rgba_string):
 
 
 # Helper function to generate styled Excel file
+@st.cache_data
 def create_styled_excel(df, project_id_col, color_mapping, numeric_cols, currency_cols, percentage_cols, filename, drop_id_col_on_export=True):
     """
     Generates a styled Excel file with row coloring based on project ID and formatting.
@@ -386,6 +392,7 @@ def get_color_families_rgba():
         ]
     }
 
+@st.cache_data
 def generate_project_color_map(project_ids_or_keys, style='rgba'):
     """
     Generates a color map for project IDs using a standardized, interleaved palette.
@@ -445,6 +452,7 @@ def highlight_projects_detail(s, dataframe, id_column):
 # ---------------------------------------------------
 # Global color mapping for consistent colors across tables
 # ---------------------------------------------------
+@st.cache_data
 def get_global_color_mapping(project_ids, style='rgba'):
     """Returns a consistent color mapping for all tables."""
     return generate_project_color_map(project_ids, style)
@@ -464,7 +472,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Título do aplicativo
-st.title('Dashboard Financeiro (v1.4)')
+st.title('Dashboard Financeiro (v1.5)')
 
 # Importar arquivo de configuração
 with open('config.yaml') as file:
@@ -483,6 +491,8 @@ authenticator.login()
 # Verificação do status da autenticação
 if st.session_state["authentication_status"]:
     authenticator.logout("Logout", "main", key="logout_sidebar")
+    # Placeholder do botão de atualização (imediatamente abaixo do Logout)
+    refresh_btn_placeholder = st.empty()
     st.write(f"Bem-vindo, {st.session_state['name']}!")
 elif st.session_state["authentication_status"] is False:
     st.error('Usuário/Senha inválido')
@@ -500,11 +510,19 @@ elif st.session_state["authentication_status"] is None:
 # O resto do código só executa se autenticado
 if st.session_state["authentication_status"]:
     # Configurar acesso ao S3
+    # Tentar obter credenciais AWS de st.secrets e, se não existir, do .env
+    try:
+        aws_access_key_id = st.secrets["AWS_ACCESS_KEY_ID"]
+        aws_secret_access_key = st.secrets["AWS_SECRET_ACCESS_KEY"]
+    except Exception:
+        aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
+        aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+
     s3 = boto3.resource(
         service_name='s3',
         region_name='us-east-2',
-        aws_access_key_id=st.secrets["AWS_ACCESS_KEY_ID"],
-        aws_secret_access_key=st.secrets["AWS_SECRET_ACCESS_KEY"]
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key
     )
 
     # ---------------------------------------------------
@@ -560,42 +578,49 @@ if st.session_state["authentication_status"]:
             st.stop()
 
     # ---------------------------------------------------
+    # Pré-processamento com openpyxl (cacheado) para tratar células mescladas
+    # ---------------------------------------------------
+    @st.cache_data
+    def preprocessar_planilha_excel(caminho_original: str) -> str:
+        try:
+            wb_local = openpyxl.load_workbook(caminho_original, data_only=True)
+            sheets_to_process_local = [
+                sheet for sheet in wb_local.sheetnames 
+                if sheet.strip().upper() not in ["GERAL_PROJETOS_FADEX", "TEDS SEM CONTRATO"]
+            ]
+            for sheet in sheets_to_process_local:
+                ws = wb_local[sheet]
+                merged_ranges = list(ws.merged_cells.ranges)
+                for merged_range in merged_ranges:
+                    min_col, min_row, max_col, max_row = merged_range.bounds
+                    top_left_value = ws.cell(row=min_row, column=min_col).value
+                    ws.unmerge_cells(str(merged_range))
+                    for row in range(min_row, max_row + 1):
+                        for col in range(min_col, max_col + 1):
+                            ws.cell(row=row, column=col).value = top_left_value
+
+            temp_file_local = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+            wb_local.save(temp_file_local.name)
+            temp_file_local.close()
+            return temp_file_local.name
+        except Exception as e:
+            print(f"Erro ao preprocessar planilha: {e}")
+            return caminho_original
+
+    # ---------------------------------------------------
     # Baixar a planilha Excel exportada do Google Sheets
     # ---------------------------------------------------
-    arquivo = baixar_planilha_excel()
+    arquivo_original = baixar_planilha_excel()
     # ---------------------------------------------------
-    # Pré-processamento com openpyxl para tratar células mescladas
+    # Pré-processamento com openpyxl para tratar células mescladas (cacheado)
     # ---------------------------------------------------
-    wb = openpyxl.load_workbook(arquivo, data_only=True)
-    sheets_to_process = [
-        sheet for sheet in wb.sheetnames 
-        if sheet.strip().upper() not in ["GERAL_PROJETOS_FADEX", "TEDS SEM CONTRATO"]
-    ]
-    for sheet in sheets_to_process:
-        ws = wb[sheet]
-        merged_ranges = list(ws.merged_cells.ranges)
-        for merged_range in merged_ranges:
-            min_col, min_row, max_col, max_row = merged_range.bounds
-            top_left_value = ws.cell(row=min_row, column=min_col).value
-            ws.unmerge_cells(str(merged_range))
-            for row in range(min_row, max_row + 1):
-                for col in range(min_col, max_col + 1):
-                    ws.cell(row=row, column=col).value = top_left_value
-
-    # Salva o workbook modificado em um novo arquivo temporário
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-    wb.save(temp_file.name)
-    temp_file.close()
-    arquivo = temp_file.name  # Atualiza o caminho para o arquivo tratado
+    arquivo = preprocessar_planilha_excel(arquivo_original)
 
     # ---------------------------------------------------
     # Continuação do seu código original para processar o Excel
     # ---------------------------------------------------
 
-    df_raw = pd.read_excel(arquivo, sheet_name=None)  # Carrega todas as abas do Excel tratado
-    # A exibição dos dados do Google Sheets foi desativada:
-    # st.write("Dados consolidados do Google Sheets:")
-    # st.dataframe(df_raw)
+    # Removido: leitura completa desnecessária de todas as abas do Excel, que tornava as interações lentas
 
 
     # Formatação para exibição dos floats com duas casas decimais
@@ -943,7 +968,19 @@ if st.session_state["authentication_status"]:
             .st-f1 { background-color: rgb(49, 170, 77); }
             
             /* Botões com fundo branco e detalhes verdes */
-            .stButton > button, .stDownloadButton > button {
+            .stButton > button, .stDownloadButton > button,
+            /* Cobrir novo framework de botões do Streamlit */
+            [data-testid="baseButton-secondary"],
+            [data-testid="baseButton-secondaryFormSubmit"],
+            [data-testid="baseButton-secondary"][aria-pressed],
+            [data-testid="baseButton-secondaryFormSubmit"][aria-pressed],
+            /* Incluir também os botões primary para manter consistência */
+            [data-testid="baseButton-primary"],
+            [data-testid="baseButton-primaryFormSubmit"],
+            [data-testid="baseButton-primary"][aria-pressed],
+            [data-testid="baseButton-primaryFormSubmit"][aria-pressed],
+            /* Seleção genérica para qualquer baseButton */
+            [data-testid^="baseButton-"] {
                 background-color: white !important;
                 color: rgb(49, 170, 77) !important;
                 border-color: rgb(49, 170, 77) !important;
@@ -951,11 +988,38 @@ if st.session_state["authentication_status"]:
                 border-style: solid !important;
                 font-weight: 500 !important;
             }
-            .stButton > button:hover, .stDownloadButton > button:hover {
+            .stButton > button:hover, .stDownloadButton > button:hover,
+            [data-testid="baseButton-secondary"]:hover,
+            [data-testid="baseButton-secondaryFormSubmit"]:hover,
+            [data-testid="baseButton-primary"]:hover,
+            [data-testid="baseButton-primaryFormSubmit"]:hover,
+            [data-testid^="baseButton-"]:hover {
                 background-color: rgba(49, 170, 77, 0.1) !important;
                 border-color: rgb(49, 170, 77) !important;
             }
-            .stButton > button:active, .stDownloadButton > button:active {
+            .stButton > button:active, .stDownloadButton > button:active,
+            [data-testid="baseButton-secondary"]:active,
+            [data-testid="baseButton-secondaryFormSubmit"]:active,
+            [data-testid="baseButton-primary"]:active,
+            [data-testid="baseButton-primaryFormSubmit"]:active,
+            [data-testid^="baseButton-"]:active {
+                background-color: rgba(49, 170, 77, 0.2) !important;
+            }
+
+            /* Estilo específico por aria-label para garantir o mesmo visual do botão de refresh */
+            button[aria-label="Forçar atualização de dados"] {
+                background-color: white !important;
+                color: rgb(49, 170, 77) !important;
+                border-color: rgb(49, 170, 77) !important;
+                border-width: 1px !important;
+                border-style: solid !important;
+                font-weight: 500 !important;
+            }
+            button[aria-label="Forçar atualização de dados"]:hover {
+                background-color: rgba(49, 170, 77, 0.1) !important;
+                border-color: rgb(49, 170, 77) !important;
+            }
+            button[aria-label="Forçar atualização de dados"]:active {
                 background-color: rgba(49, 170, 77, 0.2) !important;
             }
             
@@ -998,6 +1062,13 @@ if st.session_state["authentication_status"]:
             }
             .stMultiSelect > div[data-baseweb="tag"] {
                 background-color: rgb(49, 170, 77) !important;
+            }
+            /* Garantir o MESMO estilo do Repasses em Atraso para os selectboxes do Histórico */
+            .stSelectbox > div > div {
+                border-color: rgb(49, 170, 77) !important;
+            }
+            .stSelectbox > div > div:hover {
+                border-color: rgb(39, 150, 67) !important;
             }
             
             /* Tabs e outros elementos de navegação */
@@ -1094,6 +1165,46 @@ if st.session_state["authentication_status"]:
             
         </style>
     """, unsafe_allow_html=True)
+    
+    # Exibir o botão de atualização APÓS a aplicação do CSS
+    with refresh_btn_placeholder:
+        # Aplicar CSS específico para garantir que ESTE botão tenha o estilo verde
+        st.markdown("""
+        <style>
+        /* Forçar estilo verde para o botão de refresh específico */
+        div[data-testid="stVerticalBlock"] button[kind="secondary"][data-testid]:not([data-testid=""]),
+        div[data-testid="stVerticalBlock"] button[kind="secondary"],
+        div[data-testid="stVerticalBlock"] .stButton button,
+        button[data-testid]:not([data-testid=""]),
+        /* Cobrir qualquer botão baseButton dentro do placeholder */
+        div[data-testid="stVerticalBlock"] [data-testid^="baseButton-"] {
+            background-color: white !important;
+            color: rgb(49, 170, 77) !important;
+            border: 1px solid rgb(49, 170, 77) !important;
+            font-weight: 500 !important;
+        }
+        div[data-testid="stVerticalBlock"] button[kind="secondary"]:hover,
+        div[data-testid="stVerticalBlock"] .stButton button:hover,
+        button[data-testid]:not([data-testid=""]):hover,
+        div[data-testid="stVerticalBlock"] [data-testid^="baseButton-"]:hover {
+            background-color: rgba(49, 170, 77, 0.1) !important;
+            border-color: rgb(49, 170, 77) !important;
+        }
+        div[data-testid="stVerticalBlock"] button[kind="secondary"]:active,
+        div[data-testid="stVerticalBlock"] .stButton button:active,
+        button[data-testid]:not([data-testid=""]):active,
+        div[data-testid="stVerticalBlock"] [data-testid^="baseButton-"]:active {
+            background-color: rgba(49, 170, 77, 0.2) !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        if st.button("Forçar atualização de dados", help="Limpa o cache e recarrega os dados das fontes", key="btn_refresh_data"):
+            try:
+                st.cache_data.clear()
+            except Exception:
+                pass
+            st.rerun()
     
     # Filtros interativos
     st.sidebar.header('Filtros:')
@@ -1811,6 +1922,192 @@ if st.session_state["authentication_status"]:
 
         # --- End Planilha de Contas a Receber Section ---
 
+        # ---------------------------------------------------
+        # Histórico de Faturamento (valores recebidos)
+        # Independente dos filtros; lê a aba 'Valores recebidos'
+        # ---------------------------------------------------
+        @st.cache_data
+        def carregar_historico_faturamento_excel(caminho_xlsx: str) -> pd.DataFrame:
+            """Lê a aba 'Valores recebidos' e retorna um DataFrame com colunas: ANO, MES, VALOR.
+            A função detecta dinamicamente o cabeçalho (MÊS/VALOR) e o ano a partir do título
+            'VALORES RECEBIDOS EM <ANO>'."""
+            try:
+                df_raw_hist = pd.read_excel(caminho_xlsx, sheet_name='Valores recebidos', header=None)
+            except Exception as e:
+                st.warning(f"Não foi possível ler a aba 'Valores recebidos': {e}")
+                return pd.DataFrame(columns=["ANO", "MES", "VALOR"]).astype({"ANO": "int", "MES": "object", "VALOR": "float"})
+
+            # Detectar o ano no título (ex.: 'VALORES RECEBIDOS EM 2025')
+            ano_detectado = None
+            try:
+                mask_titulo = df_raw_hist.apply(lambda col: col.astype(str).str.contains(r"VALORES\s+RECEBIDOS\s+EM\s+\d{4}", case=False, regex=True, na=False))
+                if mask_titulo.any().any():
+                    linhas, colunas = mask_titulo.to_numpy().nonzero()
+                    txt_titulo = str(df_raw_hist.iat[linhas[0], colunas[0]])
+                    import re as _re
+                    m = _re.search(r"(\d{4})", txt_titulo)
+                    if m:
+                        ano_detectado = int(m.group(1))
+            except Exception:
+                pass
+            if not ano_detectado:
+                # Fallback solicitado: ano único 2025
+                ano_detectado = 2025
+
+            # Localizar cabeçalho 'MÊS' e 'VALOR'
+            header_row, col_mes, col_valor = None, None, None
+            try:
+                for r in range(min(30, len(df_raw_hist))):  # procura nas primeiras linhas
+                    row_vals = df_raw_hist.iloc[r].astype(str).str.strip().str.upper().tolist()
+                    for c, val in enumerate(row_vals):
+                        if val == 'MÊS' or val == 'MES':
+                            # procurar 'VALOR' na mesma linha
+                            for c2 in range(c + 1, min(c + 4, len(row_vals))):
+                                if row_vals[c2] == 'VALOR':
+                                    header_row, col_mes, col_valor = r, c, c2
+                                    break
+                        if header_row is not None:
+                            break
+                    if header_row is not None:
+                        break
+            except Exception:
+                pass
+
+            if header_row is None or col_mes is None or col_valor is None:
+                st.warning("Cabeçalho 'MÊS/VALOR' não encontrado na aba 'Valores recebidos'.")
+                return pd.DataFrame(columns=["ANO", "MES", "VALOR"]).astype({"ANO": "int", "MES": "object", "VALOR": "float"})
+
+            # Extrair linhas abaixo do cabeçalho até encontrar meses vazios
+            dados = []
+            meses_validos = [
+                'JANEIRO','FEVEREIRO','MARÇO','MARCO','ABRIL','MAIO','JUNHO','JULHO',
+                'AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'
+            ]
+
+            def parse_brl(value) -> float:
+                if pd.isna(value):
+                    return float('nan')
+                try:
+                    s = str(value)
+                    s = s.replace('R$','').replace(' ','').replace('.', '').replace('_','')
+                    s = s.replace(',', '.')
+                    return float(s)
+                except Exception:
+                    try:
+                        return float(value)
+                    except Exception:
+                        return float('nan')
+
+            for r in range(header_row + 1, len(df_raw_hist)):
+                mes_val = df_raw_hist.iat[r, col_mes]
+                if pd.isna(mes_val):
+                    continue
+                mes_str = str(mes_val).strip().upper()
+                # Tratar 'MARÇO' com e sem acento
+                if mes_str == 'MARCO':
+                    mes_str = 'MARÇO'
+                if mes_str not in meses_validos and mes_str != 'MARÇO':
+                    # parou a área útil
+                    continue
+                valor_raw = df_raw_hist.iat[r, col_valor]
+                valor_num = parse_brl(valor_raw)
+                dados.append({"ANO": ano_detectado, "MES": mes_str, "VALOR": valor_num})
+
+            df_hist = pd.DataFrame(dados)
+            if df_hist.empty:
+                return pd.DataFrame(columns=["ANO", "MES", "VALOR"]).astype({"ANO": "int", "MES": "object", "VALOR": "float"})
+
+            # Ordenação por mês
+            ordem = {m: i+1 for i, m in enumerate(['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'])}
+            df_hist['ORD'] = df_hist['MES'].map(lambda m: ordem.get(m, 99))
+            df_hist = df_hist.sort_values(['ANO','ORD']).drop(columns=['ORD'])
+            return df_hist
+
+        # Render da seção
+        st.markdown("---")
+        st.subheader("Histórico de Faturamento")
+
+        df_hist = carregar_historico_faturamento_excel(arquivo)
+        if df_hist is None or df_hist.empty:
+            st.info("Ainda não há dados de histórico cadastrados na planilha.")
+        else:
+            anos_disponiveis = sorted(df_hist['ANO'].unique())
+            # Conforme solicitado, ano único 2025 se existir; caso contrário, manter o(s) detectado(s)
+            if 2025 in anos_disponiveis:
+                anos_opcoes = [2025]
+            else:
+                anos_opcoes = anos_disponiveis
+
+            # Filtros compactos no mesmo padrão da sidebar
+            col_ano, col_mes, col_valor = st.columns([1, 2, 3])
+            with col_ano:
+                ano_sel = st.selectbox('Ano:', anos_opcoes, index=0, key='hist_ano_select')
+            with col_mes:
+                df_mes_ano = df_hist[df_hist['ANO'] == ano_sel].copy()
+                # Disponibilizar apenas meses com algum valor informado (não-NaN)
+                df_mes_ano = df_mes_ano[df_mes_ano['VALOR'].notna()]
+                meses_ordem = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO']
+                meses_disp = [m for m in meses_ordem if m in df_mes_ano['MES'].tolist()]
+                idx_default = max(0, len(meses_disp) - 1)
+                mes_sel = st.selectbox('Mês:', meses_disp if meses_disp else meses_ordem, index=idx_default, key='hist_mes_select')
+            with col_valor:
+                # Obter valor do mês selecionado
+                valor_mes = df_hist[(df_hist['ANO'] == ano_sel) & (df_hist['MES'] == mes_sel)]['VALOR']
+                valor_float = float(valor_mes.iloc[0]) if not valor_mes.empty and pd.notna(valor_mes.iloc[0]) else 0.0
+                valor_fmt = f"R$ {valor_float:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.')
+                st.metric(label=f"Faturamento {mes_sel.title()}/{ano_sel}", value=valor_fmt)
+
+            # Botões: Download e Mostrar Histórico Completo
+            try:
+                # Preparar DataFrame completo e ordenado
+                meses_ordem = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO']
+                ordem_map = {m: i+1 for i, m in enumerate(meses_ordem)}
+                df_hist_full = df_hist.copy()
+                df_hist_full['ORD'] = df_hist_full['MES'].map(lambda m: ordem_map.get(m, 99))
+                df_hist_full = df_hist_full.sort_values(['ANO','ORD']).drop(columns=['ORD'])
+
+                # Gerar Excel com formatação de moeda
+                excel_hist = create_styled_excel(
+                    df=df_hist_full.rename(columns={'MES': 'MÊS', 'VALOR': 'VALOR'}),
+                    project_id_col=None,
+                    color_mapping={},
+                    numeric_cols=[],
+                    currency_cols=['VALOR'],
+                    percentage_cols=[],
+                    filename="historico_faturamento.xlsx",
+                    drop_id_col_on_export=True
+                )
+
+                st.download_button(
+                    label="📥 Download Histórico de Faturamento (Excel)",
+                    data=excel_hist,
+                    file_name=f"historico_faturamento_{datetime.datetime.now().strftime('%d-%m-%Y')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key='download_hist_fat'
+                )
+
+                show_hist_btn = st.button('Mostrar Histórico Completo', key='btn_mostrar_hist_fat')
+                if show_hist_btn:
+                    st.session_state.show_hist_table = True
+                if 'show_hist_table' not in st.session_state:
+                    st.session_state.show_hist_table = False
+
+                if st.session_state.show_hist_table:
+                    df_display_hist = df_hist_full.rename(columns={'MES': 'MÊS', 'VALOR': 'VALOR'}).copy()
+                    st.dataframe(
+                        df_display_hist.style.format({
+                            'VALOR': lambda x: f"R$ {x:_.2f}".replace('.', ',').replace('_', '.'),
+                            'ANO': lambda x: f"{int(x)}" if isinstance(x, (int, float)) else x,
+                            'MÊS': lambda x: str(x)
+                        }),
+                        use_container_width=True
+                    )
+                    if st.button("Fechar Tabela", key="btn_fechar_hist_fat"):
+                        st.session_state.show_hist_table = False
+                        st.rerun()
+            except Exception as e:
+                st.warning(f"Não foi possível preparar o histórico completo: {e}")
+
         # Dashboard de Alerta para Saldos em Atraso
         st.markdown("---")
         st.subheader("Repasses em Atraso ⚠️")
@@ -2289,7 +2586,7 @@ if st.session_state["authentication_status"]:
 
         # Dashboard de Desvio de Proporção
         st.markdown("---")
-        st.subheader("Desvio na Proporção dos Repasses 🔍")
+        st.subheader("Desvio na Proporção dos Repasses")
 
         try:
             # Calcular métricas de desvio
@@ -3034,7 +3331,7 @@ if st.session_state["authentication_status"]:
             
         # Rodapé
         st.markdown("---")
-        st.markdown("<div style='text-align: center;'>Dashboard Financeiro Versão 1.4 © 2025</div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align: center;'>Dashboard Financeiro Versão 1.5 © 2025</div>", unsafe_allow_html=True)
 
 try:
     # Tente executar o dashboard

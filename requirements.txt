@@ -11,3 +11,4 @@ pillow
 openpyxl
 numpy
 google-api-python-client
+python-dotenv
