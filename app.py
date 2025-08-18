@@ -1144,14 +1144,20 @@ if st.session_state["authentication_status"]:
             .stSelectbox div[data-baseweb="select"] input {
                 caret-color: transparent !important;
                 user-select: none !important;
+                color: rgb(49, 51, 63) !important; /* Cor padrão do texto do Streamlit */
             }
             .stSelectbox div[data-baseweb="select"] input:focus {
                 outline: none !important;
                 box-shadow: none !important;
                 caret-color: transparent !important;
+                color: rgb(49, 51, 63) !important; /* Manter cor padrão mesmo com foco */
             }
             .stSelectbox div[data-baseweb="select"] input::selection {
                 background: transparent !important;
+            }
+            /* Garantir que o texto do selectbox mantenha a cor padrão */
+            .stSelectbox div[data-baseweb="select"] div {
+                color: rgb(49, 51, 63) !important;
             }
 
             /* Corrigir cor de fundo do slider */
