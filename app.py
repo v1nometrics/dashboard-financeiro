@@ -1140,32 +1140,24 @@ if st.session_state["authentication_status"]:
                 background-color: rgba(49, 170, 77, 0.1) !important;
             }
 
-            /* Ocultar completamente os inputs de digitação dos selectboxes */
-            .stSelectbox div[data-baseweb="select"] input[role="combobox"] {
-                display: none !important;
-                visibility: hidden !important;
-                opacity: 0 !important;
-                position: absolute !important;
-                left: -9999px !important;
-                width: 0 !important;
-                height: 0 !important;
-                pointer-events: none !important;
+            /* Remover caret (barra piscando) dos selectboxes */
+            .stSelectbox div[data-baseweb="select"] input {
+                caret-color: transparent !important;
+                user-select: none !important;
+                color: rgb(49, 51, 63) !important; /* Cor padrão do texto do Streamlit */
             }
-            
-            /* Ocultar também qualquer div interno que contenha input */
-            .stSelectbox div[data-baseweb="select"] div:has(input) {
-                display: none !important;
+            .stSelectbox div[data-baseweb="select"] input:focus {
+                outline: none !important;
+                box-shadow: none !important;
+                caret-color: transparent !important;
+                color: rgb(49, 51, 63) !important; /* Manter cor padrão mesmo com foco */
             }
-            
+            .stSelectbox div[data-baseweb="select"] input::selection {
+                background: transparent !important;
+            }
             /* Garantir que o texto do selectbox mantenha a cor padrão */
             .stSelectbox div[data-baseweb="select"] div {
                 color: rgb(49, 51, 63) !important;
-            }
-            
-            /* Garantir que apenas o texto selecionado seja visível */
-            .stSelectbox div[data-baseweb="select"] [data-baseweb="select-value"] {
-                color: rgb(49, 51, 63) !important;
-                pointer-events: none !important;
             }
 
             /* Corrigir cor de fundo do slider */
