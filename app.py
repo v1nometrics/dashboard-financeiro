@@ -1927,7 +1927,7 @@ if st.session_state["authentication_status"]:
         # Independente dos filtros; lê a aba 'Valores recebidos'
         # ---------------------------------------------------
         @st.cache_data
-        def carregar_historico_faturamento_excel(caminho_xlsx: str) -> pd.DataFrame:
+        def carregar_historico_faturamento_excel(caminho_xlsx: str, cache_version: str = "v3") -> pd.DataFrame:
             """Lê a aba 'Valores recebidos' e retorna um DataFrame com colunas: ANO, MES, VALOR.
             A função detecta dinamicamente o cabeçalho (MÊS/VALOR) e o ano a partir do título
             'VALORES RECEBIDOS EM <ANO>'."""
@@ -1988,9 +1988,32 @@ if st.session_state["authentication_status"]:
                 if pd.isna(value):
                     return float('nan')
                 try:
-                    s = str(value)
-                    s = s.replace('R$','').replace(' ','').replace('.', '').replace('_','')
-                    s = s.replace(',', '.')
+                    s_raw = str(value)
+                    # Limpar o valor removendo símbolos monetários e espaços
+                    s = s_raw.replace('R$','').replace(' ','').replace('_','').strip()
+                    
+                    # Se o valor contém pontos como separadores de milhares e vírgula como decimal
+                    # Ex: "1.626.616,87" -> "1626616.87"
+                    if ',' in s and '.' in s:
+                        # Remover pontos (separadores de milhares) e trocar vírgula por ponto
+                        s = s.replace('.', '').replace(',', '.')
+                    elif ',' in s and '.' not in s:
+                        # Apenas vírgula como separador decimal
+                        s = s.replace(',', '.')
+                    # Se só tem pontos, assumir que são separadores de milhares, exceto o último
+                    elif s.count('.') > 1:
+                        parts = s.split('.')
+                        if len(parts[-1]) <= 2:  # Último parte tem 2 dígitos ou menos (centavos)
+                            s = ''.join(parts[:-1]) + '.' + parts[-1]
+                        else:  # Todos são separadores de milhares
+                            s = s.replace('.', '')
+                    
+                    # Remover quaisquer caracteres não numéricos restantes
+                    s = re.sub(r"[^\d\.-]", "", s)
+                    
+                    if s in ("", "-", ".", "-.", ".-"):
+                        return float('nan')
+                        
                     return float(s)
                 except Exception:
                     try:
@@ -2027,7 +2050,7 @@ if st.session_state["authentication_status"]:
         st.markdown("---")
         st.subheader("Histórico de Faturamento")
 
-        df_hist = carregar_historico_faturamento_excel(arquivo)
+        df_hist = carregar_historico_faturamento_excel(arquivo, cache_version="v3")
         if df_hist is None or df_hist.empty:
             st.info("Ainda não há dados de histórico cadastrados na planilha.")
         else:
