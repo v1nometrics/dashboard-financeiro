@@ -20,6 +20,11 @@ credentials:
       logged_in: False
       name: "Gregory Gentle"
       password: "admin"
+    janailma:
+      email: "janailma.santos@innovatismc.com"
+      logged_in: False
+      name: "Janailma Santos"
+      password: "InnovaLabs86"
 cookie:
   expiry_days: 30
   key: "some_signature_key"
