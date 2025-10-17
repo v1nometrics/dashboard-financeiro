@@ -2091,14 +2091,23 @@ if st.session_state["authentication_status"]:
                 df_mes_ano = df_mes_ano[df_mes_ano['VALOR'].notna()]
                 meses_ordem = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO']
                 meses_disp = [m for m in meses_ordem if m in df_mes_ano['MES'].tolist()]
-                idx_default = max(0, len(meses_disp) - 1)
-                mes_sel = st.selectbox('Mês:', meses_disp if meses_disp else meses_ordem, index=idx_default, key='hist_mes_select')
+                meses_sel = st.multiselect('Mês(es):', meses_disp if meses_disp else meses_ordem, default=[meses_disp[-1]] if meses_disp else [], key='hist_mes_select')
             with col_valor:
-                # Obter valor do mês selecionado
-                valor_mes = df_hist[(df_hist['ANO'] == ano_sel) & (df_hist['MES'] == mes_sel)]['VALOR']
-                valor_float = float(valor_mes.iloc[0]) if not valor_mes.empty and pd.notna(valor_mes.iloc[0]) else 0.0
-                valor_fmt = f"R$ {valor_float:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.')
-                st.metric(label=f"Faturamento {mes_sel.title()}/{ano_sel}", value=valor_fmt)
+                # Obter valor(es) dos meses selecionados e calcular soma
+                if meses_sel:
+                    valores_selecionados = df_hist[(df_hist['ANO'] == ano_sel) & (df_hist['MES'].isin(meses_sel))]['VALOR']
+                    valor_total = float(valores_selecionados.sum()) if not valores_selecionados.empty else 0.0
+                    valor_fmt = f"R$ {valor_total:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.')
+                    
+                    # Label dinâmico baseado na quantidade de meses selecionados
+                    if len(meses_sel) == 1:
+                        label_metric = f"Faturamento {meses_sel[0].title()}/{ano_sel}"
+                    else:
+                        label_metric = f"Faturamento - {len(meses_sel)} mês(es) selecionados"
+                    
+                    st.metric(label=label_metric, value=valor_fmt)
+                else:
+                    st.metric(label="Faturamento", value="R$ 0,00")
 
             # Botões: Download e Mostrar Histórico Completo
             try:
