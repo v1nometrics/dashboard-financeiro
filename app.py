@@ -2074,41 +2074,350 @@ if st.session_state["authentication_status"]:
         if df_hist is None or df_hist.empty:
             st.info("Ainda não há dados de histórico cadastrados na planilha.")
         else:
-            anos_disponiveis = sorted(df_hist['ANO'].unique())
-            # Conforme solicitado, ano único 2025 se existir; caso contrário, manter o(s) detectado(s)
-            if 2025 in anos_disponiveis:
-                anos_opcoes = [2025]
-            else:
-                anos_opcoes = anos_disponiveis
-
-            # Filtros compactos no mesmo padrão da sidebar
-            col_ano, col_mes, col_valor = st.columns([1, 2, 3])
+            # Preparar todos os anos disponíveis (incluindo hardcoded se necessário)
+            anos_planilha = sorted(df_hist['ANO'].unique(), reverse=True)
+            
+            # Garantir que 2023 e 2024 estejam incluídos
+            anos_necessarios = {2023, 2024, 2025}
+            for ano in anos_necessarios:
+                if ano not in anos_planilha:
+                    # Adicionar dados hardcoded para anos faltantes
+                    if ano == 2023:
+                        dados_2023 = [
+                            {'ANO': 2023, 'MES': 'MAIO', 'VALOR': 66602.63},
+                            {'ANO': 2023, 'MES': 'JUNHO', 'VALOR': 1272422.28},
+                            {'ANO': 2023, 'MES': 'JULHO', 'VALOR': 60255.44},
+                            {'ANO': 2023, 'MES': 'AGOSTO', 'VALOR': 653399.47},
+                            {'ANO': 2023, 'MES': 'SETEMBRO', 'VALOR': 2354721.27},
+                            {'ANO': 2023, 'MES': 'OUTUBRO', 'VALOR': 178071.87},
+                            {'ANO': 2023, 'MES': 'NOVEMBRO', 'VALOR': 120901.67},
+                            {'ANO': 2023, 'MES': 'DEZEMBRO', 'VALOR': 107308.69}
+                        ]
+                        df_hist = pd.concat([df_hist, pd.DataFrame(dados_2023)], ignore_index=True)
+                    elif ano == 2024:
+                        dados_2024 = [
+                            {'ANO': 2024, 'MES': 'JANEIRO', 'VALOR': 295149.40},
+                            {'ANO': 2024, 'MES': 'FEVEREIRO', 'VALOR': 882521.89},
+                            {'ANO': 2024, 'MES': 'MARÇO', 'VALOR': 4234224.56},
+                            {'ANO': 2024, 'MES': 'ABRIL', 'VALOR': 1518944.28},
+                            {'ANO': 2024, 'MES': 'MAIO', 'VALOR': 1878557.55},
+                            {'ANO': 2024, 'MES': 'JUNHO', 'VALOR': 1809220.08},
+                            {'ANO': 2024, 'MES': 'JULHO', 'VALOR': 1780483.99},
+                            {'ANO': 2024, 'MES': 'AGOSTO', 'VALOR': 1131327.42},
+                            {'ANO': 2024, 'MES': 'SETEMBRO', 'VALOR': 1329842.72},
+                            {'ANO': 2024, 'MES': 'OUTUBRO', 'VALOR': 723331.70},
+                            {'ANO': 2024, 'MES': 'NOVEMBRO', 'VALOR': 348893.28},
+                            {'ANO': 2024, 'MES': 'DEZEMBRO', 'VALOR': 1985893.68}
+                        ]
+                        df_hist = pd.concat([df_hist, pd.DataFrame(dados_2024)], ignore_index=True)
+            
+            anos_disponiveis = sorted(df_hist['ANO'].unique(), reverse=True)
+            
+            # Seletor de ano em layout horizontal limpo
+            col_ano, col_spacer = st.columns([1, 4])
             with col_ano:
-                ano_sel = st.selectbox('Ano:', anos_opcoes, index=0, key='hist_ano_select')
-            with col_mes:
-                df_mes_ano = df_hist[df_hist['ANO'] == ano_sel].copy()
-                # Disponibilizar apenas meses com algum valor informado (não-NaN)
-                df_mes_ano = df_mes_ano[df_mes_ano['VALOR'].notna()]
-                meses_ordem = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO']
-                meses_disp = [m for m in meses_ordem if m in df_mes_ano['MES'].tolist()]
-                meses_sel = st.multiselect('Mês(es):', meses_disp if meses_disp else meses_ordem, default=[meses_disp[-1]] if meses_disp else [], key='hist_mes_select')
-            with col_valor:
-                # Obter valor(es) dos meses selecionados e calcular soma
-                if meses_sel:
-                    valores_selecionados = df_hist[(df_hist['ANO'] == ano_sel) & (df_hist['MES'].isin(meses_sel))]['VALOR']
-                    valor_total = float(valores_selecionados.sum()) if not valores_selecionados.empty else 0.0
-                    valor_fmt = f"R$ {valor_total:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.')
-                    
-                    # Label dinâmico baseado na quantidade de meses selecionados
-                    if len(meses_sel) == 1:
-                        label_metric = f"Faturamento {meses_sel[0].title()}/{ano_sel}"
-                    else:
-                        label_metric = f"Faturamento - {len(meses_sel)} mês(es) selecionados"
-                    
-                    st.metric(label=label_metric, value=valor_fmt)
+                ano_sel = st.selectbox('Ano:', anos_disponiveis, index=0, key='hist_ano_select')
+            
+            # --- NOVA LÓGICA DE COMPARAÇÃO INTELIGENTE ---
+            
+            # Obter meses disponíveis no ano selecionado
+            df_ano_atual = df_hist[df_hist['ANO'] == ano_sel].copy()
+            df_ano_atual = df_ano_atual[df_ano_atual['VALOR'].notna()]
+            
+            # Ordem dos meses para comparação
+            ordem_meses = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO',
+                          'JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO']
+            
+            # Identificar quais meses existem no ano atual
+            meses_disponiveis_ano_atual = [mes for mes in ordem_meses if mes in df_ano_atual['MES'].values]
+            
+            # Calcular valor total do ano selecionado
+            valor_anual_total = float(df_ano_atual['VALOR'].sum()) if not df_ano_atual.empty else 0.0
+            valor_anual_fmt = f"R$ {valor_anual_total:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.')
+            
+            # Preparar comparação com ano anterior
+            anos_anteriores = [ano for ano in anos_disponiveis if ano < ano_sel]
+            valor_ano_anterior = 0.0
+            texto_comparativo = ""
+            cor_variacao = ""
+            bg_variacao = ""
+            periodo_comparacao = ""
+            
+            if anos_anteriores:
+                ano_anterior = max(anos_anteriores)
+                df_ano_anterior = df_hist[df_hist['ANO'] == ano_anterior].copy()
+                df_ano_anterior = df_ano_anterior[df_ano_anterior['VALOR'].notna()]
+                
+                # Filtrar ano anterior APENAS pelos meses que existem no ano atual
+                df_ano_anterior_filtrado = df_ano_anterior[df_ano_anterior['MES'].isin(meses_disponiveis_ano_atual)]
+                valor_ano_anterior = float(df_ano_anterior_filtrado['VALOR'].sum()) if not df_ano_anterior_filtrado.empty else 0.0
+                
+                # Determinar texto do período de comparação
+                if len(meses_disponiveis_ano_atual) == 12:
+                    periodo_comparacao = f"{ano_anterior} (ano completo)"
+                elif len(meses_disponiveis_ano_atual) == 1:
+                    mes_nome = meses_disponiveis_ano_atual[0].title()
+                    periodo_comparacao = f"{mes_nome}/{ano_anterior}"
                 else:
-                    st.metric(label="Faturamento", value="R$ 0,00")
-
+                    primeiro_mes = meses_disponiveis_ano_atual[0].title()
+                    ultimo_mes = meses_disponiveis_ano_atual[-1].title()
+                    periodo_comparacao = f"{primeiro_mes} a {ultimo_mes}/{ano_anterior}"
+                
+                # Calcular variação
+                if valor_ano_anterior > 0:
+                    variacao_percentual = ((valor_anual_total - valor_ano_anterior) / valor_ano_anterior) * 100
+                    
+                    if variacao_percentual >= 0:
+                        cor_variacao = "rgb(9, 171, 59)"
+                        bg_variacao = "rgba(9, 171, 59, 0.08)"
+                        seta_svg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: text-bottom; margin-right: 8px;"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>'
+                    else:
+                        cor_variacao = "rgb(255, 43, 43)"
+                        bg_variacao = "rgba(255, 43, 43, 0.08)"
+                        seta_svg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: text-bottom; margin-right: 8px;"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>'
+                    
+                    texto_comparativo = f'{seta_svg}{abs(variacao_percentual):.1f}% vs {periodo_comparacao}'
+            
+            # Tratamento especial para 2023 (comparar com 2025)
+            elif ano_sel == 2023:
+                if 2025 in anos_disponiveis:
+                    df_2025 = df_hist[df_hist['ANO'] == 2025].copy()
+                    df_2025 = df_2025[df_2025['VALOR'].notna()]
+                    
+                    # Filtrar 2025 pelos mesmos meses disponíveis em 2023
+                    df_2025_filtrado = df_2025[df_2025['MES'].isin(meses_disponiveis_ano_atual)]
+                    valor_2025 = float(df_2025_filtrado['VALOR'].sum()) if not df_2025_filtrado.empty else 0.0
+                    
+                    # Determinar período de comparação para 2023
+                    primeiro_mes_2023 = meses_disponiveis_ano_atual[0].title()
+                    ultimo_mes_2023 = meses_disponiveis_ano_atual[-1].title()
+                    periodo_2023 = f"{primeiro_mes_2023} a {ultimo_mes_2023}"
+                    
+                    if valor_2025 > 0 and valor_anual_total > 0:
+                        variacao_percentual = ((valor_2025 - valor_anual_total) / valor_anual_total) * 100
+                        cor_variacao = "rgb(9, 171, 59)"
+                        bg_variacao = "rgba(9, 171, 59, 0.08)"
+                        texto_comparativo = f'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: text-bottom; margin-right: 8px;"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>Período: {periodo_2023} (8 meses) • 2025 cresceu {abs(variacao_percentual):.1f}% no mesmo período'
+            
+            # --- FIM DA NOVA LÓGICA ---
+            
+            # Exibir no mesmo padrão do dashboard (subtítulo + valor grande)
+            st.subheader(f'Faturamento Total de {ano_sel}:')
+            
+            # Valor principal
+            st.markdown(f'<p style="font-size:40px; margin: 0; line-height: 1.2;">{valor_anual_fmt}</p>', unsafe_allow_html=True)
+            
+            # Box de comparação com espaçamento adequado
+            if texto_comparativo:
+                st.markdown(f"""
+                <div style='margin-top: 16px; margin-bottom: 24px;'>
+                    <div style='display: inline-flex; 
+                                align-items: center;
+                                background-color: {bg_variacao}; 
+                                color: {cor_variacao}; 
+                                padding: 10px 18px; 
+                                border-radius: 8px; 
+                                font-size: 15px; 
+                                font-weight: 500;
+                                border: 1px solid {cor_variacao.replace("rgb", "rgba").replace(")", ", 0.2)")};'>
+                        {texto_comparativo}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Toggle para análise mensal - usando checkbox estilizado como toggle iOS
+            if 'hist_filtro_ativo' not in st.session_state:
+                st.session_state.hist_filtro_ativo = False
+            
+            # Criar checkbox e capturar estado
+            filtro_ativo = st.checkbox(
+                'Análise mensal detalhada',
+                value=st.session_state.hist_filtro_ativo,
+                key='hist_toggle_filtro',
+                help='Ative para visualizar e comparar meses específicos do ano selecionado'
+            )
+            st.session_state.hist_filtro_ativo = filtro_ativo
+            
+            # CSS customizado para transformar checkbox em toggle iOS com alinhamento perfeito
+            st.markdown("""
+            <style>
+                /* Container do checkbox */
+                div[data-testid="stCheckbox"][data-test-key="hist_toggle_filtro"] {
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 10px !important;
+                    margin: 0.5rem 0 !important;
+                }
+                
+                /* Label container */
+                div[data-testid="stCheckbox"][data-test-key="hist_toggle_filtro"] label {
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 10px !important;
+                    cursor: pointer !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                
+                /* Texto do label */
+                div[data-testid="stCheckbox"][data-test-key="hist_toggle_filtro"] label p {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    font-size: 0.95rem !important;
+                    font-weight: 500 !important;
+                    color: rgb(49, 51, 63) !important;
+                    line-height: 26px !important;
+                }
+                
+                /* Estilizar o checkbox nativo como toggle iOS */
+                div[data-testid="stCheckbox"][data-test-key="hist_toggle_filtro"] input[type="checkbox"] {
+                    appearance: none !important;
+                    -webkit-appearance: none !important;
+                    width: 48px !important;
+                    height: 26px !important;
+                    background-color: rgb(200, 200, 200) !important;
+                    border-radius: 13px !important;
+                    position: relative !important;
+                    cursor: pointer !important;
+                    transition: background-color 0.3s ease !important;
+                    outline: none !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    flex-shrink: 0 !important;
+                    vertical-align: middle !important;
+                }
+                
+                div[data-testid="stCheckbox"][data-test-key="hist_toggle_filtro"] input[type="checkbox"]:checked {
+                    background-color: rgb(49, 170, 77) !important;
+                }
+                
+                /* Bolinha do toggle */
+                div[data-testid="stCheckbox"][data-test-key="hist_toggle_filtro"] input[type="checkbox"]::before {
+                    content: '' !important;
+                    position: absolute !important;
+                    width: 22px !important;
+                    height: 22px !important;
+                    border-radius: 50% !important;
+                    background-color: white !important;
+                    top: 2px !important;
+                    left: 2px !important;
+                    transition: transform 0.3s ease !important;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+                }
+                
+                div[data-testid="stCheckbox"][data-test-key="hist_toggle_filtro"] input[type="checkbox"]:checked::before {
+                    transform: translateX(22px) !important;
+                }
+                
+                /* Focus state */
+                div[data-testid="stCheckbox"][data-test-key="hist_toggle_filtro"] input[type="checkbox"]:focus {
+                    box-shadow: 0 0 0 3px rgba(49, 170, 77, 0.2) !important;
+                }
+                
+                /* Remover span extra que pode estar causando desalinhamento */
+                div[data-testid="stCheckbox"][data-test-key="hist_toggle_filtro"] label > span {
+                    display: contents !important;
+                }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            # Área de filtros mensais
+            if filtro_ativo:
+                # Preparar meses disponíveis
+                meses_ordem = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO']
+                meses_disp = [m for m in meses_ordem if m in df_ano_atual['MES'].tolist()]
+                
+                col_mes_filter, col_valor_filter = st.columns([3, 2])
+                
+                with col_mes_filter:
+                    meses_sel = st.multiselect(
+                        'Meses:', 
+                        meses_disp if meses_disp else meses_ordem, 
+                        default=[meses_disp[-1]] if meses_disp else [], 
+                        key='hist_mes_select',
+                        help='Selecione um ou mais meses para análise'
+                    )
+                
+                with col_valor_filter:
+                    if meses_sel:
+                        valores_selecionados = df_hist[(df_hist['ANO'] == ano_sel) & (df_hist['MES'].isin(meses_sel))]['VALOR']
+                        valor_filtrado = float(valores_selecionados.sum()) if not valores_selecionados.empty else 0.0
+                        valor_filtrado_fmt = f"R$ {valor_filtrado:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.')
+                        
+                        if len(meses_sel) == 1:
+                            label_metric = f"{meses_sel[0].title()}/{ano_sel}"
+                        else:
+                            label_metric = f"Soma ({len(meses_sel)} meses)"
+                        
+                        percentual = (valor_filtrado / valor_anual_total * 100) if valor_anual_total > 0 else 0
+                        
+                        st.metric(
+                            label=label_metric, 
+                            value=valor_filtrado_fmt,
+                            delta=f"{percentual:.1f}% do total",
+                            delta_color="off"
+                        )
+                    else:
+                        st.info("Selecione meses para análise")
+                
+                # Gráfico comparativo mensal
+                if meses_sel and len(meses_sel) >= 1:
+                    
+                    df_grafico = df_hist[(df_hist['ANO'] == ano_sel) & (df_hist['MES'].isin(meses_sel))].copy()
+                    
+                    # Ordenar por mês
+                    meses_ordem_dict = {m: i for i, m in enumerate(meses_ordem)}
+                    df_grafico['MES_ORD'] = df_grafico['MES'].map(meses_ordem_dict)
+                    df_grafico = df_grafico.sort_values('MES_ORD')
+                    df_grafico['MES_SHORT'] = df_grafico['MES'].str[:3].str.title()
+                    
+                    # Tamanhos de gráfico METADE do tamanho anterior - super compacto
+                    if len(meses_sel) == 1:
+                        fig_size = (1.75, 1.05)
+                        bar_width = 0.3
+                    elif len(meses_sel) == 2:
+                        fig_size = (2.1, 1.05)
+                        bar_width = 0.4
+                    elif len(meses_sel) <= 4:
+                        fig_size = (2.8, 1.12)
+                        bar_width = 0.5
+                    elif len(meses_sel) <= 6:
+                        fig_size = (3.5, 1.26)
+                        bar_width = 0.6
+                    elif len(meses_sel) <= 9:
+                        fig_size = (4.2, 1.4)
+                        bar_width = 0.65
+                    else:
+                        fig_size = (4.9, 1.54)
+                        bar_width = 0.7
+                    
+                    fig_mini, ax_mini = plt.subplots(figsize=fig_size)
+                    
+                    bars = ax_mini.bar(df_grafico['MES_SHORT'], df_grafico['VALOR'] / 1_000_000, 
+                                      color='#31aa4d', alpha=0.85, edgecolor='#28a745', 
+                                      linewidth=1, width=bar_width)
+                    
+                    ax_mini.set_ylabel('Milhões (R$)', fontsize=7, color='#31333f', labelpad=6)
+                    ax_mini.tick_params(axis='both', labelsize=6.5, colors='#31333f')
+                    ax_mini.spines['top'].set_visible(False)
+                    ax_mini.spines['right'].set_visible(False)
+                    ax_mini.spines['left'].set_color('#e5e7eb')
+                    ax_mini.spines['bottom'].set_color('#e5e7eb')
+                    ax_mini.grid(axis='y', alpha=0.25, linestyle='--', linewidth=0.4, color='#e5e7eb')
+                    ax_mini.set_axisbelow(True)
+                    
+                    # Valores sobre as barras - tamanho reduzido
+                    for i, (idx, row) in enumerate(df_grafico.iterrows()):
+                        valor_m = row['VALOR'] / 1_000_000
+                        ax_mini.text(i, valor_m + (ax_mini.get_ylim()[1] * 0.02), 
+                                   f'{valor_m:.1f}M', 
+                                   ha='center', va='bottom', fontsize=6, 
+                                   fontweight='600', color='#31333f')
+                    
+                    plt.tight_layout()
+                    st.pyplot(fig_mini, use_container_width=False)
+                    plt.close(fig_mini)
+            
             # Botões: Download e Mostrar Histórico Completo
             try:
                 # Preparar DataFrame completo e ordenado
